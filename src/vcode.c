@@ -83,6 +83,7 @@ DECLARE_AND_DEFINE_ARRAY(vcode_type);
 
 typedef struct {
    vcode_op_t          kind;
+   uintptr_t           jit_addr;
    vcode_reg_array_t   args;
    vcode_reg_t         result;
    loc_t               loc;
@@ -298,9 +299,10 @@ static op_t *vcode_add_op(vcode_op_t kind)
 
    op_t *op = op_array_alloc(&(block->ops));
    memset(op, '\0', sizeof(op_t));
-   op->kind   = kind;
-   op->result = VCODE_INVALID_REG;
-   op->loc    = block->last_loc;
+   op->kind     = kind;
+   op->result   = VCODE_INVALID_REG;
+   op->loc      = block->last_loc;
+   op->jit_addr = 0;
 
    return op;
 }
@@ -538,6 +540,16 @@ void vcode_heap_allocate(vcode_reg_t reg)
    }
 }
 
+uintptr_t vcode_get_jit_addr(int op)
+{
+   return vcode_op_data(op)->jit_addr;
+}
+
+void vcode_set_jit_addr(int op, uintptr_t addr)
+{
+   vcode_op_data(op)->jit_addr = addr;
+}
+
 void vcode_state_save(vcode_state_t *state)
 {
    state->unit  = active_unit;
@@ -713,7 +725,7 @@ void vcode_opt(void)
             case VCODE_OP_UARRAY_RIGHT:
             case VCODE_OP_UNWRAP:
                if (uses[o->result] == -1) {
-                  vcode_dump_with_mark(j);
+                  vcode_dump_with_mark(j, NULL, NULL);
                   fatal("defintion of r%d does not dominate all uses",
                         o->result);
                }
@@ -733,7 +745,7 @@ void vcode_opt(void)
                break;
 
             case VCODE_OP_STORAGE_HINT:
-               vcode_dump_with_mark(j);
+               vcode_dump_with_mark(j, NULL, NULL);
                fatal("Unused storage hint for r%d was not removed",
                      o->args.items[0]);
                break;
@@ -874,7 +886,7 @@ bool vcode_signal_extern(vcode_signal_t sig)
 vcode_op_t vcode_get_op(int op)
 {
    return vcode_op_data(op)->kind;
- }
+}
 
 ident_t vcode_get_func(int op)
 {
@@ -1225,11 +1237,12 @@ static int vcode_dump_var(vcode_var_t var, int hops)
    }
 }
 
-void vcode_dump_with_mark(int mark_op)
+void vcode_dump_with_mark(int mark_op, vcode_dump_fn_t callback, void *arg)
 {
    assert(active_unit != NULL);
 
    const vcode_unit_t vu = active_unit;
+   vcode_block_t old_block = active_block;
 
    printf("\n");
    color_printf("Name       $cyan$%s$$\n", istr(vu->name));
@@ -1341,6 +1354,7 @@ void vcode_dump_with_mark(int mark_op)
 
    printf("Begin\n");
    for (int i = 0; i < vu->blocks.count; i++) {
+      active_block = i;
       const block_t *b = &(vu->blocks.items[i]);
       for (int j = 0; j < b->ops.count; j++) {
          int col = 0;
@@ -2210,18 +2224,22 @@ void vcode_dump_with_mark(int mark_op)
             break;
          }
 
-         if (j == mark_op && i == active_block)
+         if (j == mark_op && i == old_block)
             color_printf("\t $red$<----$$");
 
          color_printf("$$\n");
+
+         if (callback != NULL)
+            (*callback)(j, arg);
       }
 
       if (b->ops.count == 0)
          color_printf("  $yellow$%2d:$$ $red$Empty basic block$$\n", i);
    }
 
-
    printf("\n");
+
+   active_block = old_block;
 }
 
 bool vtype_eq(vcode_type_t a, vcode_type_t b)
@@ -2301,7 +2319,7 @@ bool vtype_includes(vcode_type_t type, vcode_type_t bounds)
 
 void vcode_dump(void)
 {
-   vcode_dump_with_mark(-1);
+   vcode_dump_with_mark(-1, NULL, NULL);
 }
 
 static vcode_type_t vtype_new(vtype_t *new)
