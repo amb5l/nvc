@@ -29,8 +29,10 @@ public:
    void zero();
    void one();
    bool is_set(unsigned n) const;
-   int first_not_set() const;
+   int first_clear() const;
    int first_set() const;
+   bool all_clear() const;
+   bool all_set() const;
 
    size_t size() const { return size_; }
 

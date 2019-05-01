@@ -13,23 +13,23 @@ TEST(Bitmask, basic) {
    EXPECT_TRUE(b.is_set(80));
 }
 
-TEST(Bitmask, first_not_set) {
+TEST(Bitmask, first_clear) {
    Bitmask b(100);
 
-   EXPECT_EQ(0, b.first_not_set());
+   EXPECT_EQ(0, b.first_clear());
    b.set(0);
-   EXPECT_EQ(1, b.first_not_set());
+   EXPECT_EQ(1, b.first_clear());
 
    b.one();
-   EXPECT_EQ(-1, b.first_not_set());
+   EXPECT_EQ(-1, b.first_clear());
 
    b.clear(78);
-   EXPECT_EQ(78, b.first_not_set());
+   EXPECT_EQ(78, b.first_clear());
 
    b.zero();
    for (size_t i = 0; i < b.size(); i++)
       b.set(i);
-   EXPECT_EQ(-1, b.first_not_set());
+   EXPECT_EQ(-1, b.first_clear());
 }
 
 TEST(Bitmask, first_set) {
@@ -47,6 +47,20 @@ TEST(Bitmask, first_set) {
    for (size_t i = 0; i < b.size(); i++)
       b.clear(i);
    EXPECT_EQ(-1, b.first_set());
+}
+
+TEST(Bitmask, all_set_clear) {
+   Bitmask b(100);
+
+   b.set(68);
+   EXPECT_FALSE(b.all_clear());
+   EXPECT_FALSE(b.all_set());
+
+   b.one();
+   EXPECT_TRUE(b.all_set());
+
+   b.zero();
+   EXPECT_TRUE(b.all_clear());
 }
 
 TEST(Bitmask, random) {

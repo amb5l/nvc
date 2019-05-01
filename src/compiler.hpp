@@ -50,32 +50,40 @@ private:
 
    int size_of(vcode_type_t vtype) const;
    Bytecode::Label &label_for_block(vcode_block_t block);
+   void spill_live();
 
    class Mapping {
    public:
-      explicit Mapping(int size);
+      enum Kind { VAR, PARAM, TEMP };
+
+      explicit Mapping(Kind kind, int size);
       Mapping(const Mapping&) = default;
 
       void promote(Bytecode::Register reg);
       void make_stack(int slot);
-      void make_constant(int64_t value=INT64_MAX);
+      void make_constant(int64_t value);
 
-      enum Kind { UNALLOCATED, REGISTER, STACK, CONSTANT };
+      enum Location { UNALLOCATED, STACK, CONSTANT };
 
       Kind kind() const { return kind_; }
+      Location location() const { return location_; }
       int size() const { return size_; }
       int stack_slot() const;
       Bytecode::Register reg() const;
       int64_t constant() const;
+      bool promoted() const { return promoted_; }
+      void kill();
 
    private:
-      vcode_reg_t vcode_reg_;
-      int         size_;
+      vcode_reg_t        vcode_reg_;
+      int                size_;
+      bool               promoted_ = false;
+      Bytecode::Register reg_;
+      Kind               kind_;
 
-      Kind kind_;
+      Location location_;
       union {
-         Bytecode::Register reg_;
-         int slot_;
+         int     stack_slot_;
          int64_t constant_;
       };
    };
@@ -96,6 +104,6 @@ private:
    std::map<vcode_var_t, Mapping> var_map_;
    std::vector<Mapping> reg_map_;
    std::vector<Bytecode::Label> block_map_;
-   std::set<vcode_reg_t> live_;
+   std::set<Mapping*> live_;
    Bitmask allocated_;
 };

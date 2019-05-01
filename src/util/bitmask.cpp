@@ -54,7 +54,7 @@ bool Bitmask::is_set(unsigned n) const
    return !!(qwords_[n >> 6] & (UINT64_C(1) << (n & 0x3f)));
 }
 
-int Bitmask::first_not_set() const
+int Bitmask::first_clear() const
 {
    for (size_t i = 0; i < qwords(size_); i++) {
       const int ffs = __builtin_ffsll(~qwords_[i]);
@@ -91,4 +91,14 @@ void Bitmask::one()
    const size_t nqwords = qwords(size_);
    for (size_t i = 0; i < nqwords; i++)
       qwords_[i] = ~UINT64_C(0);
+}
+
+bool Bitmask::all_clear() const
+{
+   return first_set() == -1;
+}
+
+bool Bitmask::all_set() const
+{
+   return first_clear() == -1;
 }
