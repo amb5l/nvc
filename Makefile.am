@@ -49,7 +49,7 @@ gtags:
 	  | (cd $(top_srcdir) && gtags -f -)
 
 $(top_builddir)/compile_commands.json:
-	bear make -C $(top_builddir) clean check QUICK=1
+	bear make -C $(top_builddir) clean bin/nvc bin/perf bin/unit_test bin/run_regr
 
 clean-local: clean-libs clean-test
 
