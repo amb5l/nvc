@@ -17,8 +17,8 @@ protected:
 
    using OpCode = Bytecode::OpCode;
 
-   virtual void SetUp() {}
-   virtual void TearDown() {}
+   virtual void SetUp() override;
+   virtual void TearDown() override;
 
    static void SetUpTestCase();
    static void TearDownTestCase();
@@ -33,12 +33,14 @@ protected:
    };
 
    static const CheckBytecode _;
-   static const CheckBytecode _1, _2;
+   static const CheckBytecode _1, _2, _3, _4;
 
    void check_bytecodes(const Bytecode *b,
                         const std::vector<CheckBytecode>&& expect);
 
    Bytecode::Assembler asm_;
+   vcode_unit_t        context_ = nullptr;
+   vcode_type_t        i32_type_ = VCODE_INVALID_TYPE;
 
 private:
    static lib_t work_;
@@ -47,8 +49,22 @@ private:
 const BytecodeTest::CheckBytecode BytecodeTest::_(CheckBytecode::DONT_CARE);
 const BytecodeTest::CheckBytecode BytecodeTest::_1(CheckBytecode::REG_MASK | 1);
 const BytecodeTest::CheckBytecode BytecodeTest::_2(CheckBytecode::REG_MASK | 2);
+const BytecodeTest::CheckBytecode BytecodeTest::_3(CheckBytecode::REG_MASK | 3);
+const BytecodeTest::CheckBytecode BytecodeTest::_4(CheckBytecode::REG_MASK | 4);
 
 lib_t BytecodeTest::work_(nullptr);
+
+void BytecodeTest::SetUp()
+{
+   context_ = emit_context(ident_new("gtest"));
+   i32_type_ = vtype_int(INT32_MIN, INT32_MAX);
+}
+
+void BytecodeTest::TearDown()
+{
+   vcode_unit_unref(context_);
+   context_ = nullptr;
+}
 
 void BytecodeTest::SetUpTestCase()
 {
@@ -128,12 +144,10 @@ void BytecodeTest::check_bytecodes(const Bytecode *b,
 }
 
 TEST_F(BytecodeTest, compile_add1) {
-   vcode_unit_t context = emit_context(ident_new("gtest"));
-   vcode_type_t i32_type = vtype_int(INT32_MIN, INT32_MAX);
-   vcode_unit_t unit = emit_function(ident_new("add1"), context, i32_type);
+   vcode_unit_t unit = emit_function(ident_new("add1"), context_, i32_type_);
 
-   vcode_reg_t p0 = emit_param(i32_type, i32_type, ident_new("x"));
-   emit_return(emit_add(p0, emit_const(i32_type, 1)));
+   vcode_reg_t p0 = emit_param(i32_type_, i32_type_, ident_new("x"));
+   emit_return(emit_add(p0, emit_const(i32_type_, 1)));
 
    vcode_opt();
 
@@ -148,7 +162,32 @@ TEST_F(BytecodeTest, compile_add1) {
       });
 
    vcode_unit_unref(unit);
-   vcode_unit_unref(context);
+}
+
+TEST_F(BytecodeTest, select) {
+   vcode_unit_t unit = emit_function(ident_new("max"), context_, i32_type_);
+
+   vcode_reg_t p0 = emit_param(i32_type_, i32_type_, ident_new("x"));
+   vcode_reg_t p1 = emit_param(i32_type_, i32_type_, ident_new("y"));
+   vcode_reg_t cmp = emit_cmp(VCODE_CMP_GT, p0, p1);
+   emit_return(emit_select(cmp, p0, p1));
+
+   vcode_opt();
+
+   Bytecode *b = Bytecode::compile(InterpMachine::get(), unit);
+   ASSERT_NE(nullptr, b);
+
+   check_bytecodes(b, {
+         Bytecode::CMP, _1, _2,
+         Bytecode::CSET, _3, Bytecode::GT,
+         Bytecode::MOV, _, _1,
+         Bytecode::CBZ, _3, _, _,
+         Bytecode::MOV, _, _2,
+         Bytecode::MOV, 0, _,
+         Bytecode::RET
+      });
+
+   vcode_unit_unref(unit);
 }
 
 TEST_F(BytecodeTest, patch) {
@@ -207,6 +246,47 @@ TEST_F(BytecodeTest, compile_fact) {
          Bytecode::CBNZ, _, _, _,
          Bytecode::JMP, _, _
       });
+}
+
+TEST_F(BytecodeTest, compile_sum) {
+#if 0
+   vcode_unit_t unit = vcode_find_unit(
+      ident_new("GTEST.FUNCTIONS.SUM(25GTEST.FUNCTIONS.INT_ARRAY)I"));
+   ASSERT_NE(nullptr, unit);
+
+   Bytecode *b = Bytecode::compile(InterpMachine::get(), unit);
+   ASSERT_NE(nullptr, b);
+
+   b->dump();
+
+   EXPECT_EQ(8, b->frame_size());
+
+   check_bytecodes(b, {
+         Bytecode::MOVB, _, 1,
+         Bytecode::STR, _, _, _, _,
+         Bytecode::CMP, _, _,
+         Bytecode::CSET, _, Bytecode::GT,
+         Bytecode::CBNZ, _, _, _,
+         Bytecode::JMP, _, _,
+         Bytecode::STR, _, _, _, _,
+         Bytecode::JMP, _, _,
+         Bytecode::LDR, _, _, _, _,
+         Bytecode::MOV, _, _,
+         Bytecode::RET,
+         Bytecode::LDR, _, _, _, _,
+         Bytecode::LDR, _, _, _, _,
+         Bytecode::MOV, _, _,
+         Bytecode::MUL, _, _,
+         Bytecode::STR, _, _, _, _,
+         Bytecode::MOV, _, _,
+         Bytecode::ADDB, _, _,
+         Bytecode::STR, _, _, _, _,
+         Bytecode::CMP, _, _,
+         Bytecode::CSET, _, Bytecode::Z,
+         Bytecode::CBNZ, _, _, _,
+         Bytecode::JMP, _, _
+      });
+#endif
 }
 
 extern "C" int run_gtests(int argc, char **argv)

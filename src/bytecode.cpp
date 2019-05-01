@@ -43,6 +43,13 @@ namespace {
       void compile_jump(int op);
       void compile_cond(int op);
       void compile_mul(int op);
+      void compile_uarray_left(int op);
+      void compile_uarray_right(int op);
+      void compile_uarray_dir(int op);
+      void compile_unwrap(int op);
+      void compile_cast(int op);
+      void compile_range_null(int op);
+      void compile_select(int op);
 
       Bytecode::Label& label_for_block(vcode_block_t block);
 
@@ -105,7 +112,7 @@ Compiler::Compiler(const Machine& m)
 
 const Compiler::Mapping& Compiler::map_vcode_reg(vcode_reg_t reg) const
 {
-   assert(reg < reg_map_.size());
+   assert(reg < (int)reg_map_.size());
    return reg_map_[reg];
 }
 
@@ -129,13 +136,27 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
       stack_offset += 4;
    }
 
-   __ set_frame_size(stack_offset);
-
    const int nregs = vcode_count_regs();
    for (int i = 0; i < nregs; i++) {
-      Mapping m = { Mapping::REGISTER, i };
-      reg_map_.push_back(m);
+      switch (vcode_reg_kind(i)) {
+      case VCODE_TYPE_INT:
+      case VCODE_TYPE_OFFSET:
+      case VCODE_TYPE_POINTER:
+         reg_map_.push_back(Mapping {Mapping::REGISTER, {i}});
+         break;
+
+      case VCODE_TYPE_UARRAY:
+         reg_map_.push_back(Mapping { Mapping::STACK, { stack_offset }});
+         stack_offset += 16;  /* XXX */
+         break;
+
+      default:
+         should_not_reach_here("cannot handle vcode type %d",
+                               vcode_reg_kind(i));
+      }
    }
+
+   __ set_frame_size(stack_offset);
 
    const int nblocks = vcode_count_blocks();
 
@@ -177,9 +198,28 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
          case VCODE_OP_COND:
             compile_cond(j);
             break;
+         case VCODE_OP_UARRAY_LEFT:
+            compile_uarray_left(j);
+            break;
+         case VCODE_OP_UARRAY_RIGHT:
+            compile_uarray_right(j);
+            break;
+         case VCODE_OP_UARRAY_DIR:
+            compile_uarray_dir(j);
+            break;
+         case VCODE_OP_CAST:
+            compile_cast(j);
+            break;
+         case VCODE_OP_RANGE_NULL:
+            compile_range_null(j);
+            break;
+         case VCODE_OP_SELECT:
+            compile_select(j);
+            break;
          case VCODE_OP_BOUNDS:
          case VCODE_OP_COMMENT:
          case VCODE_OP_DEBUG_INFO:
+         case VCODE_OP_DYNAMIC_BOUNDS:
             break;
          default:
             vcode_dump_with_mark(j);
@@ -200,6 +240,31 @@ void Compiler::compile_const(int op)
    assert(result.kind == Mapping::REGISTER);
 
    __ mov(result.reg, vcode_get_value(op));
+}
+
+void Compiler::compile_cast(int op)
+{
+   __ nop();  // TODO
+}
+
+void Compiler::compile_range_null(int op)
+{
+   __ nop();  // TODO
+}
+
+void Compiler::compile_uarray_left(int op)
+{
+   __ nop();  // TODO
+}
+
+void Compiler::compile_uarray_right(int op)
+{
+   __ nop();  // TODO
+}
+
+void Compiler::compile_uarray_dir(int op)
+{
+   __ nop();  // TODO
 }
 
 void Compiler::compile_addi(int op)
@@ -303,9 +368,28 @@ void Compiler::compile_mul(int op)
    __ mul(dst.reg, rhs.reg);
 }
 
+void Compiler::compile_select(int op)
+{
+   const Mapping& dst = map_vcode_reg(vcode_get_result(op));
+   const Mapping& sel = map_vcode_reg(vcode_get_arg(op, 0));
+   const Mapping& lhs = map_vcode_reg(vcode_get_arg(op, 1));
+   const Mapping& rhs = map_vcode_reg(vcode_get_arg(op, 2));
+
+   assert(dst.kind == Mapping::REGISTER);
+   assert(sel.kind == Mapping::REGISTER);
+   assert(lhs.kind == Mapping::REGISTER);
+   assert(rhs.kind == Mapping::REGISTER);
+
+   __ mov(dst.reg, lhs.reg);
+   Bytecode::Label skip;
+   __ cbz(sel.reg, skip);
+   __ mov(dst.reg, rhs.reg);
+   __ bind(skip);
+}
+
 Bytecode::Label& Compiler::label_for_block(vcode_block_t block)
 {
-   assert(block < block_map_.size());
+   assert(block < (int)block_map_.size());
    return block_map_[block];
 }
 
@@ -419,6 +503,8 @@ void Dumper::diassemble_one()
       break;
    case Bytecode::ADD:
       opcode("ADD");
+      reg();
+      reg();
       break;
    case Bytecode::MOV:
       opcode("MOV");
@@ -580,6 +666,14 @@ void Bytecode::Assembler::cbnz(Register src, Label& target)
    emit_branch(start, target);
 }
 
+void Bytecode::Assembler::cbz(Register src, Label& target)
+{
+   const unsigned start = bytes_.size();
+   emit_u8(Bytecode::CBZ);
+   emit_reg(src);
+   emit_branch(start, target);
+}
+
 void Bytecode::Assembler::jmp(Label& target)
 {
    const unsigned start = bytes_.size();
@@ -690,8 +784,11 @@ void Bytecode::Assembler::patch_branch(unsigned offset, unsigned abs)
 {
    switch (bytes_[offset]) {
    case Bytecode::JMP:  offset += 1; break;
-   case Bytecode::JMPC: offset += 2; break;
+   case Bytecode::JMPC:
+   case Bytecode::CBZ:
    case Bytecode::CBNZ: offset += 2; break;
+   default:
+      should_not_reach_here("cannot patch %02x", bytes_[offset]);
    }
 
    assert(offset + 2 <= bytes_.size());

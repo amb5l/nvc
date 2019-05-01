@@ -131,6 +131,7 @@ public:
       void ret();
       void cmp(Register lhs, Register rhs);
       void cset(Register dst, Condition cond);
+      void cbz(Register src, Label& label);
       void cbnz(Register src, Label& label);
       void jmp(Label& label);
       void jmp(Label& target, Condition cond);
