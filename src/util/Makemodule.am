@@ -1,0 +1,3 @@
+lib_libnvc_a_SOURCES += \
+	src/util/bitmask.hpp \
+	src/util/bitmask.cpp

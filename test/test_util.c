@@ -31,21 +31,6 @@ static void test_error_fn(const char *msg, const loc_t *loc)
    error_lines++;
 }
 
-static void setup(void)
-{
-   const char *lib_dir = getenv("LIB_DIR");
-   if (lib_dir)
-      lib_add_search_path(lib_dir);
-
-   opt_set_int("bootstrap", 0);
-   opt_set_int("cover", 0);
-   opt_set_int("unit-test", 1);
-   opt_set_str("dump-vcode", NULL);
-   opt_set_int("ignore-time", 0);
-   opt_set_int("verbose", 0);
-   intern_strings();
-}
-
 static void setup_per_test(void)
 {
    test_lib = lib_tmp("work");
@@ -88,7 +73,6 @@ void expect_errors(const error_t *lines)
 TCase *nvc_unit_test(void)
 {
    TCase *tc_core = tcase_create("Core");
-   tcase_add_unchecked_fixture(tc_core, setup, NULL);
    tcase_add_checked_fixture(tc_core, setup_per_test, teardown_per_test);
    return tc_core;
 }

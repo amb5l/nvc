@@ -18,8 +18,10 @@
 #pragma once
 
 #include "bytecode.hpp"
+#include "util/bitmask.hpp"
 
 #include <map>
+#include <set>
 
 class Compiler {
 public:
@@ -54,16 +56,17 @@ private:
       explicit Mapping(int size);
       Mapping(const Mapping&) = default;
 
-      void make_reg(Bytecode::Register reg);
+      void promote(Bytecode::Register reg);
       void make_stack(int slot);
-      void make_const();
+      void make_constant(int64_t value=INT64_MAX);
 
-      enum Kind { UNALLOCATED, REGISTER, STACK, CONST };
+      enum Kind { UNALLOCATED, REGISTER, STACK, CONSTANT };
 
       Kind kind() const { return kind_; }
       int size() const { return size_; }
       int stack_slot() const;
       Bytecode::Register reg() const;
+      int64_t constant() const;
 
    private:
       vcode_reg_t vcode_reg_;
@@ -73,6 +76,7 @@ private:
       union {
          Bytecode::Register reg_;
          int slot_;
+         int64_t constant_;
       };
    };
 
@@ -81,12 +85,17 @@ private:
       Bytecode::Label label;
    };
 
-   const Mapping &map_vcode_reg(vcode_reg_t reg) const;
-   const Mapping &map_vcode_var(vcode_reg_t reg) const;
+   Bytecode::Register in_reg(Mapping& m);
+   Bytecode::Register alloc_reg(Mapping& m);
+
+   Mapping &map_vcode_reg(vcode_reg_t reg);
+   Mapping &map_vcode_var(vcode_reg_t reg);
 
    const Machine machine_;
    Bytecode::Assembler asm_;
    std::map<vcode_var_t, Mapping> var_map_;
    std::vector<Mapping> reg_map_;
    std::vector<Bytecode::Label> block_map_;
+   std::set<vcode_reg_t> live_;
+   Bitmask allocated_;
 };

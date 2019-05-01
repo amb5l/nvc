@@ -27,6 +27,7 @@ LIBDIRS =
 
 include thirdparty/Makemodule.am
 include src/Makemodule.am
+include src/util/Makemodule.am
 include src/rt/Makemodule.am
 include src/vhpi/Makemodule.am
 include test/Makemodule.am

@@ -36,7 +36,6 @@ namespace {
       void opcode(const char *name);
       void reg();
       void immed32();
-      void immed16();
       void immed8();
       void indirect();
       void jump_target();
@@ -107,16 +106,6 @@ void Dumper::immed32()
    col_ += printer_.print("%s%d", pos_ == 0 ? " " : ", ",
                           bytecode_->machine().read_i32(bptr_));
    bptr_ += 4;
-   pos_++;
-}
-
-void Dumper::immed16()
-{
-   assert(bptr_ + 2 <= bytecode_->bytes() + bytecode_->length());
-
-   col_ += printer_.print("%s%d", pos_ == 0 ? " " : ", ",
-                          bytecode_->machine().read_i16(bptr_));
-   bptr_ += 2;
    pos_++;
 }
 
@@ -536,7 +525,7 @@ int16_t Machine::read_i16(const uint8_t *p) const
 }
 
 InterpMachine::InterpMachine()
-   : Machine("interp", NUM_REGS, 0, 255)
+   : Machine("interp", NUM_REGS, 0, NUM_REGS - 1)
 {
 }
 

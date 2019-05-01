@@ -27,22 +27,56 @@
 
 Compiler::Compiler(const Machine& m)
    : machine_(m),
-     asm_(m)
+     asm_(m),
+     allocated_(m.num_regs())
 {
 
 }
 
-const Compiler::Mapping& Compiler::map_vcode_reg(vcode_reg_t reg) const
+Compiler::Mapping& Compiler::map_vcode_reg(vcode_reg_t reg)
 {
    assert(reg < (int)reg_map_.size());
    return reg_map_[reg];
 }
 
-const Compiler::Mapping& Compiler::map_vcode_var(vcode_var_t var) const
+Compiler::Mapping& Compiler::map_vcode_var(vcode_var_t var)
 {
    auto it = var_map_.find(var);
    assert(it != var_map_.end());
    return it->second;
+}
+
+Bytecode::Register Compiler::alloc_reg(Mapping& m)
+{
+   int free = allocated_.first_not_set();
+   if (free == -1)
+      fatal_trace("out of registers");
+
+   allocated_.set(free);
+
+   m.promote(Bytecode::R(free));
+
+   return Bytecode::R(free);
+}
+
+Bytecode::Register Compiler::in_reg(Mapping& m)
+{
+   switch (m.kind()) {
+   case Mapping::REGISTER:
+      return m.reg();
+   case Mapping::STACK:
+      return alloc_reg(m);
+   case Mapping::CONSTANT:
+      {
+         const int64_t value = m.constant();
+         Bytecode::Register r = alloc_reg(m);
+         __ mov(r, value);
+         return r;
+      }
+   case Mapping::UNALLOCATED:
+   default:
+      should_not_reach_here("unallocated");
+   }
 }
 
 int Compiler::size_of(vcode_type_t vtype) const
@@ -77,7 +111,11 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
 
    const int nregs = vcode_count_regs();
    for (int i = 0; i < nregs; i++)
-      reg_map_.push_back(Mapping(size_of(vcode_reg_type(i))));
+      reg_map_.emplace_back(Mapping(size_of(vcode_reg_type(i))));
+
+   const int nparams = vcode_count_params();
+   for (int i = 0; i < nparams; i++)
+      reg_map_[i].promote(Bytecode::R(i));
 
    const int nblocks = vcode_count_blocks();
 
@@ -89,7 +127,7 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
          switch (vcode_get_op(j)) {
          case VCODE_OP_CONST:
             if (is_int8(vcode_get_value(j)))
-               reg_map_[vcode_get_result(j)].make_const();
+               reg_map_[vcode_get_result(j)].make_constant();
             break;
 
          case VCODE_OP_ADDI:
@@ -127,9 +165,7 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
       }
    }
 
-   reg_map_.clear();
-   //var_map_.clear();
-
+#if 0
    for (int i = 0; i < nregs; i++) {
       switch (vcode_reg_kind(i)) {
       case VCODE_TYPE_INT:
@@ -150,11 +186,18 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
                                vcode_reg_kind(i));
       }
    }
+#endif
 
    __ set_frame_size(stack_offset);
 
    for (int i = 0; i < nblocks; i++)
       block_map_.push_back(Bytecode::Label());
+
+   // Parameters are all live on entry
+   for (int i = 0; i < nparams; i++) {
+      live_.insert(i);
+      allocated_.set(i);
+   }
 
    for (int i = 0; i < nblocks; i++) {
       vcode_select_block(i);
@@ -229,10 +272,13 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
 
 void Compiler::compile_const(int op)
 {
-   const Mapping& result = map_vcode_reg(vcode_get_result(op));
-   assert(result.kind() == Mapping::REGISTER);
-
-   __ mov(result.reg(), vcode_get_value(op));
+   Mapping& result = map_vcode_reg(vcode_get_result(op));
+   if (result.kind() == Mapping::CONSTANT) {
+      result.make_constant(vcode_get_value(op));
+   }
+   else {
+      __ mov(in_reg(result), vcode_get_value(op));
+   }
 }
 
 void Compiler::compile_cast(int op)
@@ -262,19 +308,19 @@ void Compiler::compile_uarray_dir(int op)
 
 void Compiler::compile_addi(int op)
 {
-   const Mapping& dst = map_vcode_reg(vcode_get_result(op));
-   const Mapping& src = map_vcode_reg(vcode_get_arg(op, 0));
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op)));
+   Bytecode::Register src = in_reg(map_vcode_reg(vcode_get_arg(op, 0)));
 
-   __ mov(dst.reg(), src.reg());
-   __ add(dst.reg(), vcode_get_value(op));
+   __ mov(dst, src);
+   __ add(dst, vcode_get_value(op));
 }
 
 void Compiler::compile_return(int op)
 {
-   const Mapping& value = map_vcode_reg(vcode_get_arg(op, 0));
+   Bytecode::Register value = in_reg(map_vcode_reg(vcode_get_arg(op, 0)));
 
-   if (value.reg() != Bytecode::R(machine_.result_reg())) {
-      __ mov(Bytecode::R(machine_.result_reg()), value.reg());
+   if (value != Bytecode::R(machine_.result_reg())) {
+      __ mov(Bytecode::R(machine_.result_reg()), value);
    }
 
    __ ret();
@@ -282,25 +328,25 @@ void Compiler::compile_return(int op)
 
 void Compiler::compile_store(int op)
 {
-   const Mapping& dst = map_vcode_var(vcode_get_address(op));
-   const Mapping& src = map_vcode_reg(vcode_get_arg(op, 0));
+   Mapping& dst = map_vcode_var(vcode_get_address(op));
+   Mapping& src = map_vcode_reg(vcode_get_arg(op, 0));
 
-   __ str(Bytecode::R(machine_.sp_reg()), dst.stack_slot(), src.reg());
+   __ str(Bytecode::R(machine_.sp_reg()), dst.stack_slot(), in_reg(src));
 }
 
 void Compiler::compile_load(int op)
 {
-   const Mapping& src = map_vcode_var(vcode_get_address(op));
-   const Mapping& dst = map_vcode_reg(vcode_get_result(op));
+   Mapping& src = map_vcode_var(vcode_get_address(op));
+   Mapping& dst = map_vcode_reg(vcode_get_result(op));
 
-   __ ldr(dst.reg(), Bytecode::R(machine_.sp_reg()), src.stack_slot());
+   __ ldr(in_reg(dst), Bytecode::R(machine_.sp_reg()), src.stack_slot());
 }
 
 void Compiler::compile_cmp(int op)
 {
-   const Mapping& dst = map_vcode_reg(vcode_get_result(op));
-   const Mapping& lhs = map_vcode_reg(vcode_get_arg(op, 0));
-   const Mapping& rhs = map_vcode_reg(vcode_get_arg(op, 1));
+   Mapping& dst = map_vcode_reg(vcode_get_result(op));
+   Bytecode::Register lhs = in_reg(map_vcode_reg(vcode_get_arg(op, 0)));
+   Bytecode::Register rhs = in_reg(map_vcode_reg(vcode_get_arg(op, 1)));
 
    Bytecode::Condition cond = Bytecode::EQ;
    switch (vcode_get_cmp(op)) {
@@ -314,15 +360,15 @@ void Compiler::compile_cmp(int op)
       should_not_reach_here("unhandled vcode comparison");
    }
 
-   __ cmp(lhs.reg(), rhs.reg());
-   __ cset(dst.reg(), cond);
+   __ cmp(lhs, rhs);
+   __ cset(in_reg(dst), cond);
 }
 
 void Compiler::compile_cond(int op)
 {
-   const Mapping& src = map_vcode_reg(vcode_get_arg(op, 0));
+   Bytecode::Register src = in_reg(map_vcode_reg(vcode_get_arg(op, 0)));
 
-   __ cbnz(src.reg(), label_for_block(vcode_get_target(op, 0)));
+   __ cbnz(src, label_for_block(vcode_get_target(op, 0)));
    __ jmp(label_for_block(vcode_get_target(op, 1)));
 }
 
@@ -333,12 +379,12 @@ void Compiler::compile_jump(int op)
 
 void Compiler::compile_mul(int op)
 {
-   const Mapping& dst = map_vcode_reg(vcode_get_result(op));
-   const Mapping& lhs = map_vcode_reg(vcode_get_arg(op, 0));
-   const Mapping& rhs = map_vcode_reg(vcode_get_arg(op, 1));
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op)));
+   Bytecode::Register lhs = in_reg(map_vcode_reg(vcode_get_arg(op, 0)));
+   Bytecode::Register rhs = in_reg(map_vcode_reg(vcode_get_arg(op, 1)));
 
-   __ mov(dst.reg(), lhs.reg());
-   __ mul(dst.reg(), rhs.reg());
+   __ mov(dst, lhs);
+   __ mul(dst, rhs);
 }
 
 void Compiler::compile_select(int op)
@@ -380,6 +426,12 @@ int Compiler::Mapping::stack_slot() const
    return slot_;
 }
 
+int64_t Compiler::Mapping::constant() const
+{
+   assert(kind_ == CONSTANT);
+   return constant_;
+}
+
 void Compiler::Mapping::make_stack(int offset)
 {
    assert(kind_ == UNALLOCATED);
@@ -387,15 +439,17 @@ void Compiler::Mapping::make_stack(int offset)
    slot_ = offset;
 }
 
-void Compiler::Mapping::make_reg(Bytecode::Register reg)
+void Compiler::Mapping::promote(Bytecode::Register reg)
 {
-   assert(kind_ == UNALLOCATED);
+   assert(kind_ == STACK || kind_ == CONSTANT || kind_ == UNALLOCATED);
    kind_ = REGISTER;
    reg_ = reg;
 }
 
-void Compiler::Mapping::make_const()
+void Compiler::Mapping::make_constant(int64_t value)
 {
-   assert(kind_ == UNALLOCATED);
-   kind_ = CONST;
+   assert(kind_ == UNALLOCATED
+          || (kind_ == CONSTANT && constant_ == INT64_MAX));
+   kind_ = CONSTANT;
+   constant_ = value;
 }

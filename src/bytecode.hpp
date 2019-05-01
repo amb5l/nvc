@@ -52,7 +52,7 @@ class InterpMachine : public Machine {
 public:
    static const InterpMachine& get();
 
-   static const int NUM_REGS = 256;
+   static const int NUM_REGS = 32;
 
 private:
    InterpMachine();

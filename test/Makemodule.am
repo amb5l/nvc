@@ -21,7 +21,8 @@ bin_unit_test_SOURCES = \
 	test/test_bounds.c \
 	test/test_value.c \
 	test/test_bytecode.cpp \
-	test/test_interp.cpp
+	test/test_interp.cpp \
+	test/test_bitmask.cpp
 
 bin_unit_test_LDADD = lib/libnvc.a lib/librt.a lib/libfastlz.a \
 	$(CHECK_LIBS) $(POW_LIB) $(libdw_LIBS) -lgtest

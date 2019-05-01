@@ -46,6 +46,18 @@ int main(int argc, char **argv)
 
    setenv("NVC_LIBPATH", "../lib/std", 1);
 
+   const char *lib_dir = getenv("LIB_DIR");
+   if (lib_dir)
+      lib_add_search_path(lib_dir);
+
+   opt_set_int("bootstrap", 0);
+   opt_set_int("cover", 0);
+   opt_set_int("unit-test", 1);
+   opt_set_str("dump-vcode", NULL);
+   opt_set_int("ignore-time", 0);
+   opt_set_int("verbose", 0);
+   intern_strings();
+
    int nfail = 0;
    nfail += RUN_TESTS(ident);
    nfail += RUN_TESTS(hash);
