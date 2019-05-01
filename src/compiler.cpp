@@ -65,7 +65,7 @@ Bytecode::Register Compiler::in_reg(Mapping& m)
    if (m.promoted())
       return m.reg();
 
-   switch (m.location()) {
+   switch (m.storage()) {
    case Mapping::STACK:
       return alloc_reg(m);
    case Mapping::CONSTANT:
@@ -96,17 +96,20 @@ int Compiler::size_of(vcode_type_t vtype) const
    }
 }
 
-void Compiler::spill_live()
+void Compiler::spill_live(int op)
 {
+   Location loc { vcode_active_block(), op };
+
    for (Mapping* m : live_) {
       assert(m->promoted());
 
-      if (m->location() == Mapping::STACK) {
+      if (m->storage() == Mapping::STACK && !m->dead(loc)) {
          assert(m->size() == 4);
+         __ comment("Spill");
          __ str(Bytecode::R(machine_.sp_reg()), m->stack_slot(), m->reg());
       }
 
-      m->kill();
+      m->demote();
    }
 
    allocated_.zero();
@@ -137,6 +140,7 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
       Mapping& m = reg_map_[i];
       m.make_stack(stack_offset);
       m.promote(Bytecode::R(i));
+      m.def(Location { 0, 0 });
       stack_offset += m.size();
    }
 
@@ -147,12 +151,19 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
 
       const int nops = vcode_count_ops();
       for (int j = 0; j < nops; j++) {
+
+         const int nargs = vcode_count_args(j);
+         for (int k = 0; k < nargs; k++)
+            reg_map_[vcode_get_arg(j, k)].use(Location { i, j });
+
          switch (vcode_get_op(j)) {
          case VCODE_OP_CONST:
             {
+               Mapping& m = reg_map_[vcode_get_result(j)];
+               m.def(Location { i, j });
                const int64_t value = vcode_get_value(j);
                if (is_int8(value))
-                  reg_map_[vcode_get_result(j)].make_constant(value);
+                  m.make_constant(value);
             }
             break;
 
@@ -168,6 +179,7 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
          case VCODE_OP_RANGE_NULL:
             {
                Mapping& m = reg_map_[vcode_get_result(j)];
+               m.def(Location { i, j });
                m.make_stack(stack_offset);
                stack_offset += m.size();
             }
@@ -229,6 +241,7 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
       vcode_select_block(i);
 
       __ bind(block_map_[i]);
+      __ comment("Block entry %d", i);
 
       const int nops = vcode_count_ops();
       for (int j = 0; j < nops; j++) {
@@ -302,7 +315,7 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
 void Compiler::compile_const(int op)
 {
    Mapping& result = map_vcode_reg(vcode_get_result(op));
-   if (result.location() != Mapping::CONSTANT) {
+   if (result.storage() != Mapping::CONSTANT) {
       __ mov(in_reg(result), vcode_get_value(op));
    }
 }
@@ -397,7 +410,7 @@ void Compiler::compile_cond(int op)
 {
    Bytecode::Register src = in_reg(map_vcode_reg(vcode_get_arg(op, 0)));
 
-   spill_live();
+   spill_live(op);
 
    __ cbnz(src, label_for_block(vcode_get_target(op, 0)));
    __ jmp(label_for_block(vcode_get_target(op, 1)));
@@ -405,7 +418,7 @@ void Compiler::compile_cond(int op)
 
 void Compiler::compile_jump(int op)
 {
-   spill_live();
+   spill_live(op);
 
    __ jmp(label_for_block(vcode_get_target(op, 0)));
 }
@@ -443,7 +456,7 @@ Bytecode::Label& Compiler::label_for_block(vcode_block_t block)
 Compiler::Mapping::Mapping(Kind kind, int size)
    : size_(size),
      kind_(kind),
-     location_(UNALLOCATED)
+     storage_(UNALLOCATED)
 {
 
 }
@@ -456,13 +469,13 @@ Bytecode::Register Compiler::Mapping::reg() const
 
 int Compiler::Mapping::stack_slot() const
 {
-   assert(location_ == STACK);
+   assert(storage_ == STACK);
    return stack_slot_;
 }
 
 int64_t Compiler::Mapping::constant() const
 {
-   assert(location_ == CONSTANT);
+   assert(storage_ == CONSTANT);
    return constant_;
 }
 
@@ -475,20 +488,44 @@ void Compiler::Mapping::promote(Bytecode::Register reg)
 
 void Compiler::Mapping::make_stack(int offset)
 {
-   assert(location_ == UNALLOCATED);
-   location_ = STACK;
+   assert(storage_ == UNALLOCATED);
+   storage_ = STACK;
    stack_slot_ = offset;
 }
 
 void Compiler::Mapping::make_constant(int64_t value)
 {
-   assert(location_ == UNALLOCATED);
-   location_ = CONSTANT;
+   assert(storage_ == UNALLOCATED);
+   storage_ = CONSTANT;
    constant_ = value;
 }
 
-void Compiler::Mapping::kill()
+void Compiler::Mapping::demote()
 {
    assert(promoted_);
    promoted_ = false;
+}
+
+void Compiler::Mapping::def(Location loc)
+{
+   assert(def_ == Location::invalid());
+   def_ = loc;
+}
+
+void Compiler::Mapping::use(Location loc)
+{
+   assert(def_ != Location::invalid());
+
+   if (def_.block != loc.block)
+      last_use_ = Location::global();
+   else if (loc.op > last_use_.op)
+      last_use_ = loc;
+}
+
+bool Compiler::Mapping::dead(Location loc) const
+{
+   if (def_.block == last_use_.block)
+      return loc.op <= def_.op || loc.op >= last_use_.op;
+   else
+      return false;
 }

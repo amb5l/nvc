@@ -236,7 +236,15 @@ void Dumper::dump()
          col_ += printer_.print(" ");
 
       for (const uint8_t *p2 = startp; p2 < bptr_; p2++)
-         printer_.print(" %02x", *p2);
+         col_ += printer_.print(" %02x", *p2);
+
+      const char *comment = bytecode_->comment(startp);
+      if (comment != nullptr) {
+         while (col_ < 50)
+            col_ += printer_.print(" ");
+
+         printer_.print("; %s", comment);
+      }
 
       printer_.print("\n");
 
@@ -260,6 +268,11 @@ Bytecode::Bytecode(const Machine& m, const uint8_t *bytes, size_t len,
 Bytecode::~Bytecode()
 {
    delete bytes_;
+
+#if DEBUG
+   for (auto &p : comments_)
+      free(p.second);
+#endif
 }
 
 Bytecode *Bytecode::compile(const Machine& m, vcode_unit_t unit)
@@ -277,10 +290,46 @@ void Bytecode::dump(Printer& printer) const
    Dumper(printer, this).dump();
 }
 
+#if DEBUG
+void Bytecode::move_comments(std::map<int, char*>&& comments)
+{
+   comments_ = comments;
+}
+
+const char *Bytecode::comment(const uint8_t *bptr) const
+{
+   const int offset = bptr - bytes_;
+   auto it = comments_.find(offset);
+   if (it == comments_.end())
+      return nullptr;
+   else
+      return it->second;
+}
+#endif  // DEBUG
+
 Bytecode::Assembler::Assembler(const Machine& m)
    : machine_(m)
 {
 
+}
+
+void Bytecode::Assembler::comment(const char *fmt, ...)
+{
+#if DEBUG
+   va_list ap;
+   va_start(ap, fmt);
+   char *buf = xvasprintf(fmt, ap);
+   va_end(ap);
+
+   const int offset = bytes_.size();
+   auto it = comments_.find(offset);
+   if (it == comments_.end())
+      comments_[offset] = buf;
+   else {
+      comments_[offset] = xasprintf("%s, %s", it->second, buf);
+      free(buf);
+   }
+#endif
 }
 
 void Bytecode::Assembler::mov(Register dst, Register src)
@@ -462,7 +511,10 @@ void Bytecode::Assembler::set_frame_size(unsigned size)
 
 Bytecode *Bytecode::Assembler::finish()
 {
-   return new Bytecode(machine_, bytes_.data(), bytes_.size(), frame_size_);
+   Bytecode *b =
+      new Bytecode(machine_, bytes_.data(), bytes_.size(), frame_size_);
+   DEBUG_ONLY(b->move_comments(std::move(comments_)));
+   return b;
 }
 
 Bytecode::Label::~Label()

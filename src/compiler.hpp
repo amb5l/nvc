@@ -22,6 +22,7 @@
 
 #include <map>
 #include <set>
+#include <climits>
 
 class Compiler {
 public:
@@ -50,7 +51,22 @@ private:
 
    int size_of(vcode_type_t vtype) const;
    Bytecode::Label &label_for_block(vcode_block_t block);
-   void spill_live();
+   void spill_live(int op);
+
+   struct Location {
+      static Location invalid() { return Location { VCODE_INVALID_BLOCK, -1 }; }
+      static Location global() {
+         return Location { VCODE_INVALID_BLOCK, INT_MAX };
+      }
+
+      bool operator==(const Location& l) const {
+         return l.block == block && l.op == op;
+      }
+      bool operator!=(const Location& l) const { return !(*this == l); }
+
+      vcode_block_t block;
+      int op;
+   };
 
    class Mapping {
    public:
@@ -59,20 +75,23 @@ private:
       explicit Mapping(Kind kind, int size);
       Mapping(const Mapping&) = default;
 
-      void promote(Bytecode::Register reg);
       void make_stack(int slot);
       void make_constant(int64_t value);
 
-      enum Location { UNALLOCATED, STACK, CONSTANT };
+      enum Storage { UNALLOCATED, STACK, CONSTANT };
 
       Kind kind() const { return kind_; }
-      Location location() const { return location_; }
+      Storage storage() const { return storage_; }
       int size() const { return size_; }
       int stack_slot() const;
       Bytecode::Register reg() const;
       int64_t constant() const;
+      void promote(Bytecode::Register reg);
       bool promoted() const { return promoted_; }
-      void kill();
+      void demote();
+      void def(Location loc);
+      void use(Location loc);
+      bool dead(Location loc) const;
 
    private:
       vcode_reg_t        vcode_reg_;
@@ -80,8 +99,10 @@ private:
       bool               promoted_ = false;
       Bytecode::Register reg_;
       Kind               kind_;
+      Location           def_ = Location::invalid();
+      Location           last_use_ = Location::invalid();
 
-      Location location_;
+      Storage storage_;
       union {
          int     stack_slot_;
          int64_t constant_;

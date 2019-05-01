@@ -23,6 +23,7 @@
 
 #include <iosfwd>
 #include <vector>
+#include <map>
 
 class Machine {
 public:
@@ -125,6 +126,9 @@ public:
       void patch_branch(unsigned offset, unsigned abs);
       void bind(Label& label);
 
+      void comment(const char *fmt, ...)
+         __attribute__((format(printf, 2, 3)));
+
       void mov(Register dst, Register src);
       void mov(Register dst, int64_t value);
       void add(Register dst, Register src);
@@ -143,19 +147,23 @@ public:
 
       Register sp() const { return Register{ machine_.sp_reg() }; };
 
-      private:
-        void emit_reg(Register reg);
-        void emit_u8(uint8_t byte);
-        void emit_i32(int32_t value);
-        void emit_i16(int16_t value);
-        void emit_branch(unsigned offset, Label& target);
+   private:
+      void emit_reg(Register reg);
+      void emit_u8(uint8_t byte);
+      void emit_i32(int32_t value);
+      void emit_i16(int16_t value);
+      void emit_branch(unsigned offset, Label& target);
 
-        Assembler(const Assembler &) = delete;
-        Assembler(Assembler &&) = default;
+      Assembler(const Assembler &) = delete;
+      Assembler(Assembler &&) = default;
 
-        std::vector<uint8_t> bytes_;
-        const Machine machine_;
-        unsigned frame_size_ = 0;
+      std::vector<uint8_t> bytes_;
+      const Machine machine_;
+      unsigned frame_size_ = 0;
+
+#if DEBUG
+      std::map<int, char *> comments_;
+#endif
    };
 
    static Bytecode *compile(const Machine& m, vcode_unit_t unit);
@@ -168,6 +176,10 @@ public:
    void dump(Printer&& printer = StdoutPrinter()) const;
    void dump(Printer& printer) const;
 
+#if DEBUG
+   const char *comment(const uint8_t *bptr) const;
+#endif
+
 private:
    explicit Bytecode(const Machine& m, const uint8_t *bytes, size_t len,
                      unsigned frame_size);
@@ -175,10 +187,18 @@ private:
    Bytecode(const Bytecode&&) = delete;
    ~Bytecode();
 
+#if DEBUG
+   void move_comments(std::map<int, char*>&& comments);
+#endif
+
    uint8_t *const  bytes_;
    const size_t    len_;
    const unsigned  frame_size_;
    const Machine   machine_;
+
+#if DEBUG
+   std::map<int, char *> comments_;
+#endif
 };
 
 std::ostream& operator<<(std::ostream& os, const Bytecode& b);

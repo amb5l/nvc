@@ -60,7 +60,7 @@ int Bitmask::first_clear() const
       const int ffs = __builtin_ffsll(~qwords_[i]);
       if (ffs != 0) {
          const int result = i * 64 + ffs - 1;
-         return result < size_ ? result : -1;
+         return result < (int)size_ ? result : -1;
       }
    }
 
@@ -73,7 +73,7 @@ int Bitmask::first_set() const
       const int ffs = __builtin_ffsll(qwords_[i]);
       if (ffs != 0) {
          const int result = i * 64 + ffs - 1;
-         return result < size_ ? result : -1;
+         return result < (int)size_ ? result : -1;
       }
    }
 
