@@ -203,29 +203,6 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
       }
    }
 
-#if 0
-   for (int i = 0; i < nregs; i++) {
-      switch (vcode_reg_kind(i)) {
-      case VCODE_TYPE_INT:
-      case VCODE_TYPE_OFFSET:
-      case VCODE_TYPE_POINTER:
-         { Mapping m(4 /* XXX */); m.make_reg(Bytecode::R(i));
-            reg_map_.push_back(m); }
-         break;
-
-      case VCODE_TYPE_UARRAY:
-         { Mapping m(16 /* XXX */); m.make_stack(stack_offset);
-            reg_map_.push_back(m); }
-         stack_offset += 16;  /* XXX */
-         break;
-
-      default:
-         should_not_reach_here("cannot handle vcode type %d",
-                               vcode_reg_kind(i));
-      }
-   }
-#endif
-
    __ set_frame_size(stack_offset);
 
    for (int i = 0; i < nblocks; i++)

@@ -267,7 +267,7 @@ Bytecode::Bytecode(const Machine& m, const uint8_t *bytes, size_t len,
 
 Bytecode::~Bytecode()
 {
-   delete bytes_;
+   delete[] bytes_;
 
 #if DEBUG
    for (auto &p : comments_)
