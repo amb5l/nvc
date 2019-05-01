@@ -216,10 +216,15 @@ TEST_F(BytecodeTest, compile_fact) {
    vcode_unit_t unit = vcode_find_unit(ident_new("GTEST.FUNCTIONS.FACT(I)I"));
    ASSERT_NE(nullptr, unit);
 
+   vcode_select_unit(unit);
+   vcode_dump();
+
    Bytecode *b = Bytecode::compile(InterpMachine::get(), unit);
    ASSERT_NE(nullptr, b);
 
-   EXPECT_EQ(8, b->frame_size());
+   b->dump();
+
+   EXPECT_EQ(36, b->frame_size());
 
    check_bytecodes(b, {
          Bytecode::MOVB, _, 1,

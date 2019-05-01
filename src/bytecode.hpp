@@ -87,6 +87,9 @@ public:
 
    struct Register {
       int num;
+
+      inline bool operator==(const Register& r) const { return r.num == num; }
+      inline bool operator!=(const Register& r) const { return r.num != num; }
    };
 
    static inline Register R(int num) {

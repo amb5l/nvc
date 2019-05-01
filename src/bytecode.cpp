@@ -374,7 +374,7 @@ void Bytecode::Assembler::nop()
 
 void Bytecode::Assembler::mov(Register dst, int64_t value)
 {
-   if (value >= INT8_MIN && value <= INT8_MAX) {
+   if (is_int8(value)) {
       emit_u8(Bytecode::MOVB);
       emit_reg(dst);
       emit_u8(value);
@@ -388,7 +388,7 @@ void Bytecode::Assembler::mov(Register dst, int64_t value)
 
 void Bytecode::Assembler::add(Register dst, int64_t value)
 {
-   if (value >= INT8_MIN && value <= INT8_MAX) {
+   if (is_int8(value)) {
       emit_u8(Bytecode::ADDB);
       emit_reg(dst);
       emit_u8(value);

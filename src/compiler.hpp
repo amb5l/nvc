@@ -46,15 +46,33 @@ private:
    void compile_range_null(int op);
    void compile_select(int op);
 
+   int size_of(vcode_type_t vtype) const;
    Bytecode::Label &label_for_block(vcode_block_t block);
 
-   struct Mapping {
-      enum Kind { REGISTER, STACK };
+   class Mapping {
+   public:
+      explicit Mapping(int size);
+      Mapping(const Mapping&) = default;
 
-      Kind kind;
+      void make_reg(Bytecode::Register reg);
+      void make_stack(int slot);
+      void make_const();
+
+      enum Kind { UNALLOCATED, REGISTER, STACK, CONST };
+
+      Kind kind() const { return kind_; }
+      int size() const { return size_; }
+      int stack_slot() const;
+      Bytecode::Register reg() const;
+
+   private:
+      vcode_reg_t vcode_reg_;
+      int         size_;
+
+      Kind kind_;
       union {
-         Bytecode::Register reg;
-         int slot;
+         Bytecode::Register reg_;
+         int slot_;
       };
    };
 
