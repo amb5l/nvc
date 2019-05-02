@@ -89,6 +89,8 @@ AX_CHECK_COMPILE_FLAG([-Wall], [CFLAGS="$CFLAGS -Wall"], [], [-Werror])
 
 AC_LANG_PUSH([C++])
 AX_CHECK_COMPILE_FLAG([-Wall], [CXXFLAGS="$CXXFLAGS -Wall"], [], [-Werror])
+AX_CHECK_COMPILE_FLAG([-fno-rtti], [CXXFLAGS="$CXXFLAGS -fno-rtti"], [], [-Werror])
+AX_CHECK_COMPILE_FLAG([-fno-exceptions], [CXXFLAGS="$CXXFLAGS -fno-exceptions"], [], [-Werror])
 AC_LANG_POP([C++])
 
 AX_GCC_FUNC_ATTRIBUTE([returns_nonnull])
