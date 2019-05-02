@@ -533,15 +533,20 @@ void Compiler::compile_mul(int op)
 
 void Compiler::compile_select(int op)
 {
-   const Mapping& dst = map_vcode_reg(vcode_get_result(op));
-   const Mapping& sel = map_vcode_reg(vcode_get_arg(op, 0));
-   const Mapping& lhs = map_vcode_reg(vcode_get_arg(op, 1));
-   const Mapping& rhs = map_vcode_reg(vcode_get_arg(op, 2));
+   Mapping& sel = map_vcode_reg(vcode_get_arg(op, 0));
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op)));
+   Bytecode::Register lhs = in_reg(map_vcode_reg(vcode_get_arg(op, 1)));
+   Bytecode::Register rhs = in_reg(map_vcode_reg(vcode_get_arg(op, 2)));
 
-   __ mov(dst.reg(), lhs.reg());
+   __ mov(dst, lhs);
    Bytecode::Label skip;
-   __ cbz(sel.reg(), skip);
-   __ mov(dst.reg(), rhs.reg());
+   if (sel.storage() == Mapping::FLAGS) {
+      __ jmp(skip, sel.cond());
+   }
+   else {
+      __ cbz(in_reg(sel), skip);
+   }
+   __ mov(dst, rhs);
    __ bind(skip);
 }
 

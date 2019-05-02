@@ -179,9 +179,8 @@ TEST_F(BytecodeTest, select) {
 
    check_bytecodes(b, {
          Bytecode::CMP, _1, _2,
-         Bytecode::CSET, _3, Bytecode::GT,
          Bytecode::MOV, _, _1,
-         Bytecode::CBZ, _3, _, _,
+         Bytecode::JMPC, Bytecode::GT, _, _,
          Bytecode::MOV, _, _2,
          Bytecode::MOV, 0, _,
          Bytecode::RET
@@ -217,26 +216,23 @@ TEST_F(BytecodeTest, compile_fact) {
    ASSERT_NE(nullptr, unit);
 
    vcode_select_unit(unit);
-   vcode_dump();
 
    Bytecode *b = Bytecode::compile(InterpMachine::get(), unit);
    ASSERT_NE(nullptr, b);
 
-   b->dump();
-
-   EXPECT_EQ(36, b->frame_size());
+   EXPECT_EQ(32, b->frame_size());
 
    check_bytecodes(b, {
          Bytecode::MOVB, _, 1,
          Bytecode::STR, _, _, _, _,
          Bytecode::CMP, _, _,
-         Bytecode::CSET, _, Bytecode::GT,
-         Bytecode::CBNZ, _, _, _,
+         Bytecode::STR, _, _, _, _,
+         Bytecode::JMPC, Bytecode::GT, _, _,
          Bytecode::JMP, _, _,
+         Bytecode::MOVB, _, 1,
          Bytecode::STR, _, _, _, _,
          Bytecode::JMP, _, _,
          Bytecode::LDR, _, _, _, _,
-         Bytecode::MOV, _, _,
          Bytecode::RET,
          Bytecode::LDR, _, _, _, _,
          Bytecode::LDR, _, _, _, _,
@@ -244,11 +240,11 @@ TEST_F(BytecodeTest, compile_fact) {
          Bytecode::MUL, _, _,
          Bytecode::STR, _, _, _, _,
          Bytecode::MOV, _, _,
-         Bytecode::ADDB, _, _,
+         Bytecode::ADDB, _, 1,
          Bytecode::STR, _, _, _, _,
+         Bytecode::LDR, _, _, _, _,
          Bytecode::CMP, _, _,
-         Bytecode::CSET, _, Bytecode::Z,
-         Bytecode::CBNZ, _, _, _,
+         Bytecode::JMPC, Bytecode::Z, _, _,
          Bytecode::JMP, _, _
       });
 }
