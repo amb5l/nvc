@@ -326,6 +326,7 @@ void Bytecode::Assembler::comment(const char *fmt, ...)
    if (it == comments_.end())
       comments_[offset] = buf;
    else {
+      buf[0] = tolower(buf[0]);
       comments_[offset] = xasprintf("%s, %s", it->second, buf);
       free(buf);
    }

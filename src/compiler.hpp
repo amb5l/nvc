@@ -51,7 +51,8 @@ private:
 
    int size_of(vcode_type_t vtype) const;
    Bytecode::Label &label_for_block(vcode_block_t block);
-   void spill_live(int op);
+   void spill_live();
+   void find_def_use();
 
    struct Location {
       static Location invalid() { return Location { VCODE_INVALID_BLOCK, -1 }; }
@@ -77,21 +78,26 @@ private:
 
       void make_stack(int slot);
       void make_constant(int64_t value);
+      void make_flags(Bytecode::Condition cond);
 
-      enum Storage { UNALLOCATED, STACK, CONSTANT };
+      enum Storage { UNALLOCATED, STACK, CONSTANT, FLAGS };
 
       Kind kind() const { return kind_; }
       Storage storage() const { return storage_; }
       int size() const { return size_; }
       int stack_slot() const;
+      Bytecode::Condition cond() const;
       Bytecode::Register reg() const;
       int64_t constant() const;
-      void promote(Bytecode::Register reg);
+      void promote(Bytecode::Register reg, bool dirty);
       bool promoted() const { return promoted_; }
       void demote();
       void def(Location loc);
       void use(Location loc);
       bool dead(Location loc) const;
+      Location def() const { return def_; }
+      Location last_use() const { return last_use_; }
+      bool dirty() const;
 
    private:
       vcode_reg_t        vcode_reg_;
@@ -101,11 +107,13 @@ private:
       Kind               kind_;
       Location           def_ = Location::invalid();
       Location           last_use_ = Location::invalid();
+      bool               dirty_ = false;
 
       Storage storage_;
       union {
-         int     stack_slot_;
-         int64_t constant_;
+         int                 stack_slot_;
+         int64_t             constant_;
+         Bytecode::Condition cond_;
       };
    };
 
@@ -115,16 +123,23 @@ private:
    };
 
    Bytecode::Register in_reg(Mapping& m);
-   Bytecode::Register alloc_reg(Mapping& m);
+   Bytecode::Register alloc_reg(Mapping& m, bool dirty);
+   bool can_use_flags(const Mapping& m);
+   Bytecode::Condition map_condition() const;
+
+   static bool will_clobber_flags(int op);
+
+   Location current_location() const;
 
    Mapping &map_vcode_reg(vcode_reg_t reg);
    Mapping &map_vcode_var(vcode_reg_t reg);
 
-   const Machine machine_;
-   Bytecode::Assembler asm_;
+   const Machine                  machine_;
+   Bytecode::Assembler            asm_;
    std::map<vcode_var_t, Mapping> var_map_;
-   std::vector<Mapping> reg_map_;
-   std::vector<Bytecode::Label> block_map_;
-   std::set<Mapping*> live_;
-   Bitmask allocated_;
+   std::vector<Mapping>           reg_map_;
+   std::vector<Bytecode::Label>   block_map_;
+   std::set<Mapping*>             live_;
+   Bitmask                        allocated_;
+   int                            op_ = -1;
 };
