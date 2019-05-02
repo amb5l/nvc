@@ -1862,6 +1862,7 @@ static vcode_reg_t lower_array_ref(tree_t ref, expr_ctx_t ctx)
       return array;
 
    const vtype_kind_t vtkind = vtype_kind(vcode_reg_type(array));
+   (void)vtkind;
    assert(vtkind == VCODE_TYPE_POINTER || vtkind == VCODE_TYPE_UARRAY
           || vtkind == VCODE_TYPE_SIGNAL);
 
@@ -2071,7 +2072,7 @@ static int lower_bit_width(type_t type)
       return bits_for_range(0, type_enum_literals(type) - 1);
 
    default:
-      assert(false);
+      should_not_reach_here("unexpected");
    }
 }
 
@@ -2317,7 +2318,8 @@ static int lower_field_index(type_t type, ident_t field)
       if (tree_ident(type_field(type, i)) == field)
          return i;
    }
-   assert(false);
+
+   should_not_reach_here("invalid field");
 }
 
 static vcode_reg_t lower_record_aggregate(tree_t expr, bool nest,
@@ -4628,7 +4630,7 @@ static void lower_subprogram_ports(tree_t body, bool has_subprograms)
          break;
 
       default:
-         assert(false);
+         should_not_reach_here("unexpected");
       }
 
       vcode_reg_t reg = emit_param(vtype, vbounds, tree_ident(p));

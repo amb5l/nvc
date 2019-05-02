@@ -226,7 +226,7 @@ ident_t type_ident(type_t t)
          return ident_new("none");
 
       default:
-         assert(false);
+         should_not_reach_here("bad kind");
       }
    }
    else

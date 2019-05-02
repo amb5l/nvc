@@ -409,7 +409,7 @@ static void msg_at(print_fn_t fn, const loc_t *loc, const char *fmt, va_list ap)
    free(strp);
 }
 
-#ifndef HAVE_LIBDW
+#ifndef NO_STACK_TRACE
 static int color_vfprintf(FILE *f, const char *fmt, va_list ap)
 {
    char *strp LOCAL = prepare_msg(fmt, ap, false);
@@ -437,7 +437,7 @@ static int color_fprintf(FILE *f, const char *fmt, ...)
    va_end(ap);
    return len;
 }
-#endif  // !HAVE_LIBDW
+#endif  // !NO_STACK_TRACE
 
 int color_printf(const char *fmt, ...)
 {

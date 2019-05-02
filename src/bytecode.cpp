@@ -72,9 +72,6 @@ void Dumper::reg()
 
 void Dumper::condition()
 {
-   const char *names[] = { "Z", "NZ", "GT", "LT", "GE", "LE" };
-   assert(*bptr_ < ARRAY_LEN(names));
-
    const char *name = "?";
    switch ((Bytecode::Condition)*bptr_) {
    case Bytecode::Z:  name = "Z";  break;
@@ -238,6 +235,7 @@ void Dumper::dump()
       for (const uint8_t *p2 = startp; p2 < bptr_; p2++)
          col_ += printer_.print(" %02x", *p2);
 
+#if DEBUG
       const char *comment = bytecode_->comment(startp);
       if (comment != nullptr) {
          while (col_ < 50)
@@ -245,6 +243,7 @@ void Dumper::dump()
 
          printer_.print("; %s", comment);
       }
+#endif
 
       printer_.print("\n");
 

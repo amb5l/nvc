@@ -342,6 +342,7 @@ static tree_t simp_attr_ref(tree_t t, simp_ctx_t *ctx)
          if (type_is_array(type)) {
             if (tree_params(t) > 0) {
                const bool f = folded_int(tree_value(tree_param(t, 0)), &dim_i);
+               (void)f;
                assert(f);
             }
 

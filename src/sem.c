@@ -1777,7 +1777,7 @@ static bool sem_check_type(tree_t t, type_t *ptype)
       return true;
 
    default:
-      assert(false);
+      should_not_reach_here("unexpected");
    }
 }
 
@@ -3634,7 +3634,7 @@ static type_t sem_find_param_type(tree_t param, tree_t decl)
       }
 
    default:
-      assert(false);
+      should_not_reach_here("unexpected");
    }
 }
 

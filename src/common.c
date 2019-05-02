@@ -452,7 +452,7 @@ int record_field_to_net(type_t type, ident_t name)
          offset += type_width(tree_type(field));
    }
 
-   assert(false);
+   should_not_reach_here("invalid field");
 }
 
 tree_t find_record_field(tree_t rref)

@@ -454,7 +454,7 @@ static const char *vhpi_map_str_for_type(type_t type)
    else if (type_name == std_bit_i)
       return "01";
    else
-      assert(false);
+      should_not_reach_here("bad type");
 }
 
 static rt_event_t vhpi_get_rt_event(int reason)
@@ -474,7 +474,7 @@ static rt_event_t vhpi_get_rt_event(int reason)
    case vhpiCbLastKnownDeltaCycle:
       return RT_LAST_KNOWN_DELTA_CYCLE;
    default:
-      assert(false);
+      should_not_reach_here("invalid reason %d", reason);
    }
 }
 
@@ -1134,7 +1134,7 @@ int vhpi_get_value(vhpiHandleT expr, vhpiValueT *value_p)
          return 0;
 
       default:
-            assert(false);
+         should_not_reach_here("bad format %d", format);
       }
    }
    else {
@@ -1425,7 +1425,7 @@ int vhpi_release_handle(vhpiHandleT handle)
       return 0;
 
    default:
-      assert(false);
+      should_not_reach_here("bad handle kind");
    }
 }
 

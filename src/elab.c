@@ -695,11 +695,9 @@ static netid_t elab_get_net(tree_t expr, int n)
       {
          tree_t value = tree_value(expr);
          type_t array_type = tree_type(value);
-
-         range_t type_r  = range_of(array_type, 0);
          range_t slice_r = tree_range(expr, 0);
 
-         assert(type_r.kind == slice_r.kind);
+         assert(range_of(array_type, 0).kind == slice_r.kind);
 
          const int64_t type_off =
             rebase_index(array_type, 0, assume_int(slice_r.left));
@@ -720,7 +718,7 @@ static netid_t elab_get_net(tree_t expr, int n)
       }
 
    default:
-      assert(false);
+      should_not_reach_here("unexpected");
    }
 }
 
