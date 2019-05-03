@@ -100,7 +100,7 @@ typedef vcode_reg_t (*lower_signal_flag_fn_t)(vcode_reg_t, vcode_reg_t);
 typedef vcode_reg_t (*arith_fn_t)(vcode_reg_t, vcode_reg_t);
 
 #define SAVE_DEBUG_INFO \
-   __attribute__((cleanup(emit_debug_info))) \
+   __attribute__((cleanup(emit_debug_info), unused)) \
    const loc_t _old_loc = *vcode_last_loc()
 
 static bool lower_is_const(tree_t t)

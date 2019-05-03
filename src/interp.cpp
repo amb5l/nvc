@@ -61,6 +61,7 @@ inline int16_t Interpreter::imm16()
 
 Interpreter::reg_t Interpreter::run(const Bytecode *code)
 {
+   bytecode_ = code;
    bytes_ = code->bytes();
    bci_ = 0;
 

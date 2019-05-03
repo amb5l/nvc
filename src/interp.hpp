@@ -35,10 +35,10 @@ private:
    inline int8_t imm8();
    inline int16_t imm16();
 
-   class Frame {
+   /*class Frame {
       const Bytecode *bytecode;
       unsigned        bci;
-   };
+      };*/
 
    const Bytecode *bytecode_ = nullptr;
    unsigned        bci_ = 0;

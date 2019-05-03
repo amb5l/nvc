@@ -100,7 +100,6 @@ private:
       bool dirty() const;
 
    private:
-      vcode_reg_t        vcode_reg_;
       int                size_;
       bool               promoted_ = false;
       Bytecode::Register reg_;
