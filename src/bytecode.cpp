@@ -16,7 +16,6 @@
 //
 
 #include "bytecode.hpp"
-#include "compiler.hpp"
 
 #include <vector>
 #include <map>
@@ -272,11 +271,6 @@ Bytecode::~Bytecode()
    for (auto &p : comments_)
       free(p.second);
 #endif
-}
-
-Bytecode *Bytecode::compile(const Machine& m, vcode_unit_t unit)
-{
-   return Compiler(m).compile(unit);
 }
 
 void Bytecode::dump(Printer&& printer) const

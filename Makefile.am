@@ -7,9 +7,9 @@ pkgdata_DATA = data/coverage.css
 man_MANS = nvc.1
 
 AM_CPPFLAGS = -I$(top_srcdir)/thirdparty -I$(top_srcdir)/src
-AM_CFLAGS   = $(CHECK_CFLAGS)
-AM_CXXFLAGS =
-AM_LDFLAGS  = $(RDYNAMIC_FLAG) $(LLVM_LDFLAGS)
+AM_CFLAGS   = @NVC_CFLAGS@ $(CHECK_CFLAGS)
+AM_CXXFLAGS = @NVC_CXXFLAGS@
+AM_LDFLAGS  = @NVC_LDFLAGS@ $(RDYNAMIC_FLAG) $(LLVM_LDFLAGS)
 
 if FST_WRITER_PARALLEL
 AM_CC       = $(PTHREAD_CC)

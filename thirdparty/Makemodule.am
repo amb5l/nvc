@@ -6,3 +6,12 @@ lib_libfst_a_SOURCES = thirdparty/fstapi.c thirdparty/lz4.c thirdparty/fstapi.h 
 	thirdparty/lz4.h
 
 lib_libfastlz_a_SOURCES = thirdparty/fastlz.c thirdparty/fastlz.h
+
+check_LIBRARIES += lib/libgtest.a
+
+lib_libgtest_a_SOURCES = thirdparty/googletest/googletest/src/gtest-all.cc
+
+lib_libgtest_a_CPPFLAGS = $(AM_CPPFLAGS) -I$(top_srcdir)/thirdparty/googletest/googletest
+lib_libgtest_a_CXXFLAGS = $(AM_CXXFLAGS) -Os -g0
+
+AM_CPPFLAGS += -isystem $(top_srcdir)/thirdparty/googletest/googletest/include

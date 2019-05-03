@@ -151,7 +151,7 @@ TEST_F(BytecodeTest, compile_add1) {
 
    vcode_opt();
 
-   Bytecode *b = Bytecode::compile(InterpMachine::get(), unit);
+   Bytecode *b = compile(InterpMachine::get(), unit);
    ASSERT_NE(nullptr, b);
 
    check_bytecodes(b, {
@@ -174,7 +174,7 @@ TEST_F(BytecodeTest, select) {
 
    vcode_opt();
 
-   Bytecode *b = Bytecode::compile(InterpMachine::get(), unit);
+   Bytecode *b = compile(InterpMachine::get(), unit);
    ASSERT_NE(nullptr, b);
 
    check_bytecodes(b, {
@@ -217,7 +217,7 @@ TEST_F(BytecodeTest, compile_fact) {
 
    vcode_select_unit(unit);
 
-   Bytecode *b = Bytecode::compile(InterpMachine::get(), unit);
+   Bytecode *b = compile(InterpMachine::get(), unit);
    ASSERT_NE(nullptr, b);
 
    EXPECT_EQ(32, b->frame_size());
@@ -255,7 +255,7 @@ TEST_F(BytecodeTest, compile_sum) {
       ident_new("GTEST.FUNCTIONS.SUM(25GTEST.FUNCTIONS.INT_ARRAY)I"));
    ASSERT_NE(nullptr, unit);
 
-   Bytecode *b = Bytecode::compile(InterpMachine::get(), unit);
+   Bytecode *b = compile(InterpMachine::get(), unit);
    ASSERT_NE(nullptr, b);
 
    b->dump();

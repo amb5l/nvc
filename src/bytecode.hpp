@@ -166,8 +166,6 @@ public:
 #endif
    };
 
-   static Bytecode *compile(const Machine& m, vcode_unit_t unit);
-
    const uint8_t *bytes() const { return bytes_; }
    size_t length() const { return len_; }
    const Machine& machine() const { return machine_; }

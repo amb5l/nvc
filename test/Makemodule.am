@@ -24,8 +24,8 @@ bin_unit_test_SOURCES = \
 	test/test_interp.cpp \
 	test/test_bitmask.cpp
 
-bin_unit_test_LDADD = lib/libnvc.a lib/librt.a lib/libfastlz.a \
-	$(CHECK_LIBS) $(POW_LIB) $(libdw_LIBS) -lgtest
+bin_unit_test_LDADD = lib/libnvc.a lib/librt.a lib/libfastlz.a lib/libgtest.a \
+	$(CHECK_LIBS) $(POW_LIB) $(libdw_LIBS)
 
 bin_run_regr_SOURCES = test/run_regr.c
 

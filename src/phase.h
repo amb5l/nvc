@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2011-2017  Nick Gasson
+//  Copyright (C) 2011-2019  Nick Gasson
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -98,5 +98,15 @@ vcode_unit_t lower_thunk(tree_t fcall);
 vcode_unit_t lower_func(tree_t body);
 
 END_C_HEADER
+
+#ifdef __cplusplus
+
+class Machine;
+class Bytecode;
+
+// Compile vcode unit to byte code
+Bytecode *compile(const Machine& m, vcode_unit_t unit);
+
+#endif  // __cplusplus
 
 #endif  // _PHASE_H

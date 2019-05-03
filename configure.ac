@@ -24,8 +24,8 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_HOST
 
 # Override default CFLAGS/CXXFLAGS
-CFLAGS=
-CXXFLAGS=
+: ${CFLAGS=""}
+: ${CXXFLAGS=""}
 
 AC_PROG_CC
 AC_PROG_CC_C99
@@ -77,20 +77,35 @@ if test x$enable_debug = xyes -a x$enable_release = xyes; then
   AC_MSG_ERROR([--enable-release and --enable-debug are mutally exclusive])
 elif test x$enable_debug = xyes; then
   AX_CHECK_COMPILE_FLAG([-Og],
-    [CFLAGS="$CFLAGS -Og -g"; CXXFLAGS="$CXXFLAGS -Og -g"],
-    [CFLAGS="$CFLAGS -O0 -g"; CXXFLAGS="$CXXFLAGS -O0 -g"],
+    [NVC_CFLAGS="-Og -g"; NVC_CXXFLAGS="-Og -g"],
+    [NVC_CFLAGS="-O0 -g"; NVC_CXXFLAGS="-O0 -g"],
     [-Werror])
 else
-  CFLAGS="$CFLAGS -O2 -g -DNDEBUG"
-  CXXFLAGS="$CXXFLAGS -O2 -g -DNDEBUG"
+  NVC_CFLAGS="-O2 -g -DNDEBUG"
+  NVC_CXXFLAGS="-O2 -g -DNDEBUG"
 fi
 
-AX_CHECK_COMPILE_FLAG([-Wall], [CFLAGS="$CFLAGS -Wall"], [], [-Werror])
+AX_CHECK_COMPILE_FLAG([-Wall], [NVC_CFLAGS="$NVC_CFLAGS -Wall"], [], [-Werror])
+
+if test x$enable_werror = xyes ; then
+  AX_CHECK_COMPILE_FLAG([-Werror], [NVC_CFLAGS="$NVC_CFLAGS -Werror"], [], [-Werror])
+fi
 
 AC_LANG_PUSH([C++])
-AX_CHECK_COMPILE_FLAG([-Wall], [CXXFLAGS="$CXXFLAGS -Wall"], [], [-Werror])
-AX_CHECK_COMPILE_FLAG([-fno-rtti], [CXXFLAGS="$CXXFLAGS -fno-rtti"], [], [-Werror])
-AX_CHECK_COMPILE_FLAG([-fno-exceptions], [CXXFLAGS="$CXXFLAGS -fno-exceptions"], [], [-Werror])
+
+AX_CHECK_COMPILE_FLAG([-Wall],
+  [NVC_CXXFLAGS="$NVC_CXXFLAGS -Wall"], [], [-Werror])
+AX_CHECK_COMPILE_FLAG([-fno-rtti],
+  [NVC_CXXFLAGS="$NVC_CXXFLAGS -fno-rtti"], [], [-Werror])
+AX_CHECK_COMPILE_FLAG([-fno-exceptions],
+  [NVC_CXXFLAGS="$NVC_CXXFLAGS -fno-exceptions"], [], [-Werror])
+AX_CHECK_COMPILE_FLAG([-fvisibility=hidden -fvisibility-inlines-hidden],
+  [NVC_CXXFLAGS="$NVC_CXXFLAGS -fvisibility=hidden -fvisibility-inlines-hidden"], [], [-Werror])
+
+if test x$enable_werror = xyes ; then
+  AX_CHECK_COMPILE_FLAG([-Werror], [NVC_CXXFLAGS="$NVC_CXXFLAGS -Werror"], [], [-Werror])
+fi
+
 AC_LANG_POP([C++])
 
 AX_GCC_FUNC_ATTRIBUTE([returns_nonnull])
@@ -304,20 +319,16 @@ AC_ARG_ENABLE([gcov],
   [enable_gcov=$enableval],
   [])
 if test x$enable_gcov = xyes ; then
-  CFLAGS="$CFLAGS --coverage --no-inline -Og"
-  CXXFLAGS="$CXXFLAGS --coverage --no-inline -Og"
-  LDFLAGS="$LDFLAGS --coverage"
+  NVC_CFLAGS="$NVC_CFLAGS --coverage --no-inline -Og"
+  NVC_CXXFLAGS="$NVC_CXXFLAGS --coverage --no-inline -Og"
+  NVC_LDFLAGS="$NVC_LDFLAGS --coverage"
   AC_MSG_WARN([code coverage with gcov is for use in development only])
 fi
 AM_CONDITIONAL([ENABLE_GCOV], [test x$enable_gcov = xyes])
 
-# -Werror check should come last as it effects all other tests
-if test x$enable_werror = xyes ; then
-  AX_CHECK_COMPILE_FLAG([-Werror], [CFLAGS="$CFLAGS -Werror"], [], [-Werror])
-  AC_LANG_PUSH([C++])
-  AX_CHECK_COMPILE_FLAG([-Werror], [CXXFLAGS="$CXXFLAGS -Werror"], [], [-Werror])
-  AC_LANG_POP([C++])
-fi
+AC_SUBST(NVC_CFLAGS)
+AC_SUBST(NVC_CXXFLAGS)
+AC_SUBST(NVC_LDFLAGS)
 
 AC_CHECK_PROG([RONN], [ronn], [1])
 AM_CONDITIONAL([HAVE_RONN], [test -n "$RONN"])
@@ -326,9 +337,9 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
 
-AC_MSG_NOTICE([final CFLAGS   : $CFLAGS])
-AC_MSG_NOTICE([final CXXFLAGS : $CXXFLAGS])
-AC_MSG_NOTICE([final LDFLAGS  : $LDFLAGS])
+AC_MSG_NOTICE([final CFLAGS   : $NVC_CFLAGS])
+AC_MSG_NOTICE([final CXXFLAGS : $NVC_CXXFLAGS])
+AC_MSG_NOTICE([final LDFLAGS  : $NVC_LDFLAGS])
 
 if test x$enable_debug = xyes; then
   AC_MSG_NOTICE([configured for DEBUG build])
