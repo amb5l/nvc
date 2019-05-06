@@ -48,6 +48,8 @@ namespace {
       void compile_jump(int op);
       void compile_cond(int op);
       void compile_mul(int op);
+      void compile_sub();
+      void compile_add();
       void compile_uarray_left(int op);
       void compile_uarray_right(int op);
       void compile_uarray_dir(int op);
@@ -55,6 +57,8 @@ namespace {
       void compile_cast(int op);
       void compile_range_null(int op);
       void compile_select(int op);
+      void compile_unwrap();
+      void compile_load_indirect();
 
       int size_of(vcode_type_t vtype) const;
       Bytecode::Label &label_for_block(vcode_block_t block);
@@ -275,7 +279,7 @@ void Compiler::spill_live()
       assert(m->promoted());
 
       if (m->storage() == Mapping::STACK && !m->dead(loc) && m->dirty()) {
-         assert(m->size() == 4);
+         assert(m->size() == machine_.word_size());
          __ comment("Spill");
          __ str(Bytecode::R(machine_.sp_reg()), m->stack_slot(), m->reg());
       }
@@ -300,36 +304,9 @@ void Compiler::find_def_use()
          for (int k = 0; k < nargs; k++)
             reg_map_[vcode_get_arg(j, k)].use(Location { i, j });
 
-         switch (vcode_get_op(j)) {
-         case VCODE_OP_CONST:
-         case VCODE_OP_ADDI:
-         case VCODE_OP_CMP:
-         case VCODE_OP_SELECT:
-         case VCODE_OP_CAST:
-         case VCODE_OP_LOAD:
-         case VCODE_OP_MUL:
-         case VCODE_OP_UARRAY_LEFT:
-         case VCODE_OP_UARRAY_RIGHT:
-         case VCODE_OP_UARRAY_DIR:
-         case VCODE_OP_RANGE_NULL:
-            reg_map_[vcode_get_result(j)].def(Location { i, j });
-            break;
-
-         case VCODE_OP_JUMP:
-         case VCODE_OP_COND:
-         case VCODE_OP_STORE:
-         case VCODE_OP_RETURN:
-         case VCODE_OP_BOUNDS:
-         case VCODE_OP_COMMENT:
-         case VCODE_OP_DEBUG_INFO:
-         case VCODE_OP_DYNAMIC_BOUNDS:
-            break;
-
-         default:
-            DEBUG_ONLY(vcode_dump_with_mark(j));
-            should_not_reach_here("cannot analyse vcode op %s",
-                                  vcode_op_string(vcode_get_op(j)));
-         }
+         vcode_reg_t result = vcode_get_result(j);
+         if (result != VCODE_INVALID_REG)
+            reg_map_[result].def(Location { i, j });
       }
    }
 }
@@ -381,7 +358,11 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
    for (int i = 0; i < nparams; i++) {
       Mapping& m = reg_map_[i];
       m.make_stack(stack_offset);
-      m.promote(Bytecode::R(i), true);
+      if (m.size() <= machine_.word_size()) {
+         m.promote(Bytecode::R(i), true);
+         live_.insert(&(reg_map_[i]));
+         allocated_.set(i);
+      }
       m.def(Location { 0, 0 });
       stack_offset += m.size();
    }
@@ -396,10 +377,15 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
       for (int j = 0; j < nops; j++) {
          op_ = j;
 
+         vcode_reg_t result = vcode_get_result(j);
+         if (result == VCODE_INVALID_REG)
+            continue;
+
+         Mapping& m = reg_map_[result];
+
          switch (vcode_get_op(j)) {
          case VCODE_OP_CONST:
             {
-               Mapping& m = reg_map_[vcode_get_result(j)];
                const int64_t value = vcode_get_value(j);
                if (is_int8(value))
                   m.make_constant(value);
@@ -407,47 +393,17 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
             break;
 
          case VCODE_OP_CMP:
-            {
-               Mapping& m = reg_map_[vcode_get_result(j)];
-               if (can_use_flags(m))
-                  m.make_flags(map_condition());
-               else {
-                  m.make_stack(stack_offset);
-                  stack_offset += m.size();
-               }
-            }
-            break;
-
-         case VCODE_OP_ADDI:
-         case VCODE_OP_SELECT:
-         case VCODE_OP_CAST:
-         case VCODE_OP_LOAD:
-         case VCODE_OP_MUL:
-         case VCODE_OP_UARRAY_LEFT:
-         case VCODE_OP_UARRAY_RIGHT:
-         case VCODE_OP_UARRAY_DIR:
-         case VCODE_OP_RANGE_NULL:
-            {
-               Mapping& m = reg_map_[vcode_get_result(j)];
+            if (can_use_flags(m))
+               m.make_flags(map_condition());
+            else {
                m.make_stack(stack_offset);
                stack_offset += m.size();
             }
             break;
 
-         case VCODE_OP_JUMP:
-         case VCODE_OP_COND:
-         case VCODE_OP_STORE:
-         case VCODE_OP_RETURN:
-         case VCODE_OP_BOUNDS:
-         case VCODE_OP_COMMENT:
-         case VCODE_OP_DEBUG_INFO:
-         case VCODE_OP_DYNAMIC_BOUNDS:
-            break;
-
          default:
-            DEBUG_ONLY(vcode_dump_with_mark(j));
-            should_not_reach_here("cannot analyse vcode op %s",
-                                  vcode_op_string(vcode_get_op(j)));
+            m.make_stack(stack_offset);
+            stack_offset += m.size();
          }
       }
    }
@@ -456,12 +412,6 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
 
    for (int i = 0; i < nblocks; i++)
       block_map_.push_back(Bytecode::Label());
-
-   // Parameters are all live on entry
-   for (int i = 0; i < nparams; i++) {
-      live_.insert(&(reg_map_[i]));
-      allocated_.set(i);
-   }
 
    for (int i = 0; i < nblocks; i++) {
       vcode_select_block(i);
@@ -498,6 +448,12 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
          case VCODE_OP_MUL:
             compile_mul(j);
             break;
+         case VCODE_OP_SUB:
+            compile_sub();
+            break;
+         case VCODE_OP_ADD:
+            compile_add();
+            break;
          case VCODE_OP_COND:
             compile_cond(j);
             break;
@@ -518,6 +474,12 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
             break;
          case VCODE_OP_SELECT:
             compile_select(j);
+            break;
+         case VCODE_OP_UNWRAP:
+            compile_unwrap();
+            break;
+         case VCODE_OP_LOAD_INDIRECT:
+            compile_load_indirect();
             break;
          case VCODE_OP_BOUNDS:
          case VCODE_OP_COMMENT:
@@ -548,6 +510,11 @@ void Compiler::compile_const(int op)
    }
 }
 
+void Compiler::compile_unwrap()
+{
+   __ nop();  // TODO
+}
+
 void Compiler::compile_cast(int op)
 {
    __ nop();  // TODO
@@ -569,6 +536,11 @@ void Compiler::compile_uarray_right(int op)
 }
 
 void Compiler::compile_uarray_dir(int op)
+{
+   __ nop();  // TODO
+}
+
+void Compiler::compile_load_indirect()
 {
    __ nop();  // TODO
 }
@@ -656,6 +628,26 @@ void Compiler::compile_mul(int op)
 
    __ mov(dst, lhs);
    __ mul(dst, rhs);
+}
+
+void Compiler::compile_sub()
+{
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
+   Bytecode::Register lhs = in_reg(map_vcode_reg(vcode_get_arg(op_, 0)));
+   Bytecode::Register rhs = in_reg(map_vcode_reg(vcode_get_arg(op_, 1)));
+
+   __ mov(dst, lhs);
+   __ sub(dst, rhs);
+}
+
+void Compiler::compile_add()
+{
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
+   Bytecode::Register lhs = in_reg(map_vcode_reg(vcode_get_arg(op_, 0)));
+   Bytecode::Register rhs = in_reg(map_vcode_reg(vcode_get_arg(op_, 1)));
+
+   __ mov(dst, lhs);
+   __ add(dst, rhs);
 }
 
 void Compiler::compile_select(int op)

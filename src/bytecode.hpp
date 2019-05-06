@@ -27,7 +27,8 @@
 
 class Machine {
 public:
-   Machine(const char *name, int num_regs, int result_reg, int sp_reg);
+   Machine(const char *name, int num_regs, int result_reg, int sp_reg,
+           int word_size);
    Machine(const Machine&) = default;
    Machine(Machine&&) = default;
    virtual ~Machine() {}
@@ -36,6 +37,7 @@ public:
    int num_regs() const { return num_regs_; }
    int result_reg() const { return result_reg_; }
    int sp_reg() const { return sp_reg_; }
+   int word_size() const { return word_size_; }
 
    int32_t read_i32(const uint8_t *p) const;
    int16_t read_i16(const uint8_t *p) const;
@@ -47,6 +49,7 @@ private:
    const int         num_regs_;
    const int         result_reg_;
    const int         sp_reg_;
+   const int         word_size_;
 };
 
 class InterpMachine : public Machine {
@@ -54,6 +57,7 @@ public:
    static const InterpMachine& get();
 
    static const int NUM_REGS = 32;
+   static const int WORD_SIZE = 4;
 
 private:
    InterpMachine();
@@ -79,6 +83,7 @@ public:
       MOVB = 0x0e,     // Move 8-bit literal to register
       ADDB = 0x0f,     // Add 8-bit immediate to register
       JMPC = 0x10,     // Jump if condition code set
+      SUB  = 0x11,     // Subtract two registers
    };
 
    enum Condition : uint8_t {
@@ -133,6 +138,7 @@ public:
       void mov(Register dst, int64_t value);
       void add(Register dst, Register src);
       void add(Register dst, int64_t value);
+      void sub(Register dst, Register src);
       void str(Register indirect, int16_t offset, Register src);
       void ldr(Register dst, Register indirect, int16_t offset);
       void ret();

@@ -400,6 +400,7 @@ void vcode_clear_storage_hint(uint32_t tag)
 
    o->comment = xasprintf("Unused storage hint for r%d", o->args.items[0]);
    o->kind = VCODE_OP_COMMENT;
+   o->result = VCODE_INVALID_REG;
    vcode_reg_array_resize(&(o->args), 0, VCODE_INVALID_REG);
 }
 
@@ -716,22 +717,25 @@ void vcode_opt(void)
             case VCODE_OP_UNWRAP:
                if (uses[o->result] == -1) {
                   vcode_dump_with_mark(j);
-                  fatal("defintion of r%d does not dominate all uses",
-                        o->result);
+                  should_not_reach_here("defintion of r%d does not dominate "
+                                        "all uses", o->result);
                }
                else if (uses[o->result] == 0) {
                   if (o->kind == VCODE_OP_CONST)
                      o->kind = (vcode_op_t)-1;
                   else {
+                     uses[o->result] = -1;
                      o->comment = xasprintf("Dead %s definition of r%d",
                                             vcode_op_string(o->kind),
                                             o->result);
                      o->kind = VCODE_OP_COMMENT;
+                     o->result = VCODE_INVALID_REG;
                   }
                   vcode_reg_array_resize(&(o->args), 0, VCODE_INVALID_REG);
                   pruned++;
                }
-               uses[o->result] = -1;
+               else
+                  uses[o->result] = -1;
                break;
 
             case VCODE_OP_STORAGE_HINT:
@@ -2984,6 +2988,7 @@ vcode_reg_t emit_alloca(vcode_type_t type, vcode_type_t bounds,
          other->comment = xasprintf("Used storage hint for r%d",
                                     other->args.items[0]);
          other->kind = VCODE_OP_COMMENT;
+         other->result = VCODE_INVALID_REG;
          return other->args.items[0];
       }
    }
@@ -3305,6 +3310,7 @@ void emit_store(vcode_reg_t reg, vcode_var_t var)
          other->kind = VCODE_OP_COMMENT;
          other->comment =
             xasprintf("Dead store to %s", istr(vcode_var_name(var)));
+         other->result = VCODE_INVALID_REG;
          vcode_reg_array_resize(&(other->args), 0, VCODE_INVALID_REG);
       }
       else if (other->kind == VCODE_OP_NESTED_FCALL

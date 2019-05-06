@@ -250,7 +250,6 @@ TEST_F(BytecodeTest, compile_fact) {
 }
 
 TEST_F(BytecodeTest, compile_sum) {
-#if 0
    vcode_unit_t unit = vcode_find_unit(
       ident_new("GTEST.FUNCTIONS.SUM(25GTEST.FUNCTIONS.INT_ARRAY)I"));
    ASSERT_NE(nullptr, unit);
@@ -258,36 +257,8 @@ TEST_F(BytecodeTest, compile_sum) {
    Bytecode *b = compile(InterpMachine::get(), unit);
    ASSERT_NE(nullptr, b);
 
+   vcode_dump();
    b->dump();
-
-   EXPECT_EQ(8, b->frame_size());
-
-   check_bytecodes(b, {
-         Bytecode::MOVB, _, 1,
-         Bytecode::STR, _, _, _, _,
-         Bytecode::CMP, _, _,
-         Bytecode::CSET, _, Bytecode::GT,
-         Bytecode::CBNZ, _, _, _,
-         Bytecode::JMP, _, _,
-         Bytecode::STR, _, _, _, _,
-         Bytecode::JMP, _, _,
-         Bytecode::LDR, _, _, _, _,
-         Bytecode::MOV, _, _,
-         Bytecode::RET,
-         Bytecode::LDR, _, _, _, _,
-         Bytecode::LDR, _, _, _, _,
-         Bytecode::MOV, _, _,
-         Bytecode::MUL, _, _,
-         Bytecode::STR, _, _, _, _,
-         Bytecode::MOV, _, _,
-         Bytecode::ADDB, _, _,
-         Bytecode::STR, _, _, _, _,
-         Bytecode::CMP, _, _,
-         Bytecode::CSET, _, Bytecode::Z,
-         Bytecode::CBNZ, _, _, _,
-         Bytecode::JMP, _, _
-      });
-#endif
 }
 
 extern "C" int run_gtests(int argc, char **argv)

@@ -148,6 +148,11 @@ void Dumper::diassemble_one()
       reg();
       reg();
       break;
+   case Bytecode::SUB:
+      opcode("SUB");
+      reg();
+      reg();
+      break;
    case Bytecode::MOV:
       opcode("MOV");
       reg();
@@ -431,6 +436,20 @@ void Bytecode::Assembler::add(Register dst, int64_t value)
    }
 }
 
+void Bytecode::Assembler::sub(Register dst, Register src)
+{
+   emit_u8(Bytecode::SUB);
+   emit_reg(dst);
+   emit_reg(src);
+}
+
+void Bytecode::Assembler::add(Register dst, Register src)
+{
+   emit_u8(Bytecode::ADD);
+   emit_reg(dst);
+   emit_reg(src);
+}
+
 void Bytecode::Assembler::mul(Register dst, Register rhs)
 {
    emit_u8(Bytecode::MUL);
@@ -539,11 +558,13 @@ void Bytecode::Label::bind(Assembler *owner, unsigned target)
    patch_list_.clear();
 }
 
-Machine::Machine(const char *name, int num_regs, int result_reg, int sp_reg)
+Machine::Machine(const char *name, int num_regs, int result_reg, int sp_reg,
+                 int word_size)
    : name_(name),
      num_regs_(num_regs),
      result_reg_(result_reg),
-     sp_reg_(sp_reg)
+     sp_reg_(sp_reg),
+     word_size_(word_size)
 {
 }
 
@@ -571,7 +592,7 @@ int16_t Machine::read_i16(const uint8_t *p) const
 }
 
 InterpMachine::InterpMachine()
-   : Machine("interp", NUM_REGS, 0, NUM_REGS - 1)
+   : Machine("interp", NUM_REGS, 0, NUM_REGS - 1, WORD_SIZE)
 {
 }
 
