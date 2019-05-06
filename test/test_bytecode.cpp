@@ -155,9 +155,7 @@ TEST_F(BytecodeTest, compile_add1) {
    ASSERT_NE(nullptr, b);
 
    check_bytecodes(b, {
-         Bytecode::MOV, _1, 0,
-         Bytecode::ADDB, _1, 0x01,
-         Bytecode::MOV, 0, _1,
+         Bytecode::ADDB, 0, 0x01,
          Bytecode::RET
       });
 
@@ -236,7 +234,6 @@ TEST_F(BytecodeTest, compile_fact) {
          Bytecode::RET,
          Bytecode::LDR, _, _, _, _,
          Bytecode::LDR, _, _, _, _,
-         Bytecode::MOV, _, _,
          Bytecode::MUL, _, _,
          Bytecode::STR, _, _, _, _,
          Bytecode::MOV, _, _,
@@ -259,6 +256,35 @@ TEST_F(BytecodeTest, compile_sum) {
 
    vcode_dump();
    b->dump();
+}
+
+TEST_F(BytecodeTest, add_sub_reuse) {
+   vcode_unit_t unit = emit_function(ident_new("add_sub_reuse"),
+                                     context_, i32_type_);
+
+   vcode_reg_t p0 = emit_param(i32_type_, i32_type_, ident_new("x"));
+   vcode_reg_t p1 = emit_param(i32_type_, i32_type_, ident_new("x"));
+
+   vcode_reg_t t0 = emit_add(p0, p1);
+   vcode_reg_t t1 = emit_sub(t0, p1);
+   vcode_reg_t t2 = emit_add(t1, p0);
+   emit_return(t2);
+
+   vcode_opt();
+
+   Bytecode *b = compile(InterpMachine::get(), unit);
+   ASSERT_NE(nullptr, b);
+
+   check_bytecodes(b, {
+         Bytecode::MOV, _1, 0,
+         Bytecode::ADD, _1, 1,
+         Bytecode::ADD, _1, 1,
+         Bytecode::ADD, _1, 0,
+         Bytecode::MOV, 0, _1,
+         Bytecode::RET
+      });
+
+   vcode_unit_unref(unit);
 }
 
 extern "C" int run_gtests(int argc, char **argv)

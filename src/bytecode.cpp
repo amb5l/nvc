@@ -333,9 +333,11 @@ void Bytecode::Assembler::comment(const char *fmt, ...)
 
 void Bytecode::Assembler::mov(Register dst, Register src)
 {
-   emit_u8(Bytecode::MOV);
-   emit_reg(dst);
-   emit_reg(src);
+   if (dst != src) {
+      emit_u8(Bytecode::MOV);
+      emit_reg(dst);
+      emit_reg(src);
+   }
 }
 
 void Bytecode::Assembler::cmp(Register lhs, Register rhs)

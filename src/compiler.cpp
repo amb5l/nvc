@@ -133,6 +133,7 @@ namespace {
       };
 
       Bytecode::Register in_reg(Mapping& m);
+      Bytecode::Register in_reg(Mapping& m, Mapping& reuse);
       Bytecode::Register alloc_reg(Mapping& m, bool dirty);
       bool can_use_flags(const Mapping& m);
       Bytecode::Condition map_condition() const;
@@ -227,6 +228,23 @@ Bytecode::Register Compiler::in_reg(Mapping& m)
    default:
       should_not_reach_here("unallocated");
    }
+}
+
+Bytecode::Register Compiler::in_reg(Mapping& m, Mapping& reuse)
+{
+   if (m.promoted())
+      return m.reg();
+
+   if (reuse.promoted() && reuse.last_use() == current_location()) {
+      Bytecode::Register r = reuse.reg();
+      reuse.demote();
+      live_.erase(&reuse);
+      live_.insert(&m);
+      m.promote(r, true);
+      return r;
+   }
+
+   return in_reg(m);
 }
 
 bool Compiler::will_clobber_flags(int op)
@@ -547,8 +565,10 @@ void Compiler::compile_load_indirect()
 
 void Compiler::compile_addi(int op)
 {
-   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op)));
-   Bytecode::Register src = in_reg(map_vcode_reg(vcode_get_arg(op, 0)));
+   Mapping& tmp = map_vcode_reg(vcode_get_arg(op_, 0));
+
+   Bytecode::Register src = in_reg(tmp);
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)), tmp);
 
    __ mov(dst, src);
    __ add(dst, vcode_get_value(op));
@@ -622,9 +642,11 @@ void Compiler::compile_jump(int op)
 
 void Compiler::compile_mul(int op)
 {
-   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op)));
-   Bytecode::Register lhs = in_reg(map_vcode_reg(vcode_get_arg(op, 0)));
-   Bytecode::Register rhs = in_reg(map_vcode_reg(vcode_get_arg(op, 1)));
+   Mapping& tmp = map_vcode_reg(vcode_get_arg(op_, 0));
+
+   Bytecode::Register lhs = in_reg(tmp);
+   Bytecode::Register rhs = in_reg(map_vcode_reg(vcode_get_arg(op_, 1)));
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)), tmp);
 
    __ mov(dst, lhs);
    __ mul(dst, rhs);
@@ -632,19 +654,23 @@ void Compiler::compile_mul(int op)
 
 void Compiler::compile_sub()
 {
-   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
-   Bytecode::Register lhs = in_reg(map_vcode_reg(vcode_get_arg(op_, 0)));
+   Mapping& tmp = map_vcode_reg(vcode_get_arg(op_, 0));
+
+   Bytecode::Register lhs = in_reg(tmp);
    Bytecode::Register rhs = in_reg(map_vcode_reg(vcode_get_arg(op_, 1)));
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)), tmp);
 
    __ mov(dst, lhs);
-   __ sub(dst, rhs);
+   __ add(dst, rhs);
 }
 
 void Compiler::compile_add()
 {
-   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
-   Bytecode::Register lhs = in_reg(map_vcode_reg(vcode_get_arg(op_, 0)));
+   Mapping& tmp = map_vcode_reg(vcode_get_arg(op_, 0));
+
+   Bytecode::Register lhs = in_reg(tmp);
    Bytecode::Register rhs = in_reg(map_vcode_reg(vcode_get_arg(op_, 1)));
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)), tmp);
 
    __ mov(dst, lhs);
    __ add(dst, rhs);
