@@ -1840,8 +1840,3 @@ const char *safe_symbol(const char *text)
    return text;
 #endif
 }
-
-bool is_int8(int64_t x)
-{
-   return x >= INT8_MIN && x <= INT8_MAX;
-}

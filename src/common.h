@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2013-2018  Nick Gasson
+//  Copyright (C) 2013-2019  Nick Gasson
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -19,6 +19,8 @@
 #define _COMMON_H
 
 #include "tree.h"
+
+BEGIN_C_HEADER
 
 //
 // Various utility functions
@@ -61,6 +63,8 @@ void loc_read(loc_t *loc, fbuf_t *f, ident_rd_ctx_t ctx);
 char *vcode_file_name(ident_t unit_name);
 bool pack_needs_cgen(tree_t t);
 ident_t mangle_func(tree_t decl, const char *prefix);
+bool is_int8(int64_t x);
+bool is_int32(int64_t x);
 
 const char *fmt_time_r(char *buf, size_t len, uint64_t t);
 const char *fmt_time(uint64_t t);
@@ -200,5 +204,7 @@ GLOBAL ident_t nnets_i;
 GLOBAL ident_t thunk_i;
 
 void intern_strings();
+
+END_C_HEADER
 
 #endif  // _COMMON_H

@@ -18,6 +18,7 @@
 #include "bytecode.hpp"
 #include "util/bitmask.hpp"
 #include "phase.h"
+#include "common.h"
 
 #include <vector>
 #include <map>
@@ -52,12 +53,11 @@ namespace {
       void compile_add();
       void compile_uarray_left(int op);
       void compile_uarray_right(int op);
-      void compile_uarray_dir(int op);
-      void compile_unwrap(int op);
-      void compile_cast(int op);
+      void compile_uarray_dir();
+      void compile_unwrap();
+      void compile_cast();
       void compile_range_null(int op);
       void compile_select(int op);
-      void compile_unwrap();
       void compile_load_indirect();
 
       int size_of(vcode_type_t vtype) const;
@@ -134,6 +134,7 @@ namespace {
 
       Bytecode::Register in_reg(Mapping& m);
       Bytecode::Register in_reg(Mapping& m, Mapping& reuse);
+      Bytecode::Register in_reg(Mapping& m, Bytecode::Register reuse);
       Bytecode::Register alloc_reg(Mapping& m, bool dirty);
       bool can_use_flags(const Mapping& m);
       Bytecode::Condition map_condition() const;
@@ -247,6 +248,24 @@ Bytecode::Register Compiler::in_reg(Mapping& m, Mapping& reuse)
    return in_reg(m);
 }
 
+Bytecode::Register Compiler::in_reg(Mapping& m, Bytecode::Register reuse)
+{
+   if (allocated_.is_set(reuse.num)) {
+      for (Mapping* it : live_) {
+         if (it->reg() == reuse)
+            return in_reg(m, *it);
+      }
+
+      should_not_reach_here("allocated reg not in live set");
+   }
+   else {
+      m.promote(reuse, current_location() == m.def());
+      live_.insert(&m);
+      allocated_.set(reuse.num);
+      return reuse;
+   }
+}
+
 bool Compiler::will_clobber_flags(int op)
 {
    switch (vcode_get_op(op)) {
@@ -281,9 +300,9 @@ int Compiler::size_of(vcode_type_t vtype) const
    case VCODE_TYPE_OFFSET:
       return 4;
    case VCODE_TYPE_UARRAY:
-      return 12; /* XXX ? */
+      return machine_.word_size() + 4 + 8 * vtype_dims(vtype);
    case VCODE_TYPE_POINTER:
-      return 4; /* XXX ? */
+      return machine_.word_size();
    default:
       should_not_reach_here("unhandled type");
    }
@@ -482,10 +501,10 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
             compile_uarray_right(j);
             break;
          case VCODE_OP_UARRAY_DIR:
-            compile_uarray_dir(j);
+            compile_uarray_dir();
             break;
          case VCODE_OP_CAST:
-            compile_cast(j);
+            compile_cast();
             break;
          case VCODE_OP_RANGE_NULL:
             compile_range_null(j);
@@ -530,12 +549,58 @@ void Compiler::compile_const(int op)
 
 void Compiler::compile_unwrap()
 {
-   __ nop();  // TODO
+   Mapping& uarray = map_vcode_reg(vcode_get_arg(op_, 0));
+   assert(uarray.storage() == Mapping::STACK);
+
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
+
+   __ ldr(dst, Bytecode::R(machine_.sp_reg()), uarray.stack_slot());
 }
 
-void Compiler::compile_cast(int op)
+void Compiler::compile_cast()
 {
-   __ nop();  // TODO
+   vcode_reg_t arg_reg    = vcode_get_arg(op_, 0);
+   vcode_reg_t result_reg = vcode_get_result(op_);
+
+   vcode_type_t arg_type    = vcode_reg_type(arg_reg);
+   vcode_type_t result_type = vcode_reg_type(result_reg);
+
+   vtype_kind_t arg_kind    = vtype_kind(arg_type);
+   vtype_kind_t result_kind = vtype_kind(result_type);
+
+   if (arg_kind == VCODE_TYPE_CARRAY) {
+      // This is a no-op as constrained arrays are implemented as pointers
+      should_not_reach_here("todo");
+   }
+   else if (result_kind == VCODE_TYPE_REAL && arg_kind == VCODE_TYPE_INT) {
+      should_not_reach_here("todo");
+   }
+   else if (result_kind == VCODE_TYPE_INT && arg_kind == VCODE_TYPE_REAL) {
+      should_not_reach_here("todo");
+   }
+   else if (result_kind == VCODE_TYPE_INT || result_kind == VCODE_TYPE_OFFSET) {
+      const int abits = bits_for_range(vtype_low(arg_type),
+                                       vtype_high(arg_type));
+      const int rbits = bits_for_range(vtype_low(result_type),
+                                       vtype_high(result_type));
+
+      Bytecode::Register arg = in_reg(map_vcode_reg(arg_reg));
+      Bytecode::Register result = in_reg(map_vcode_reg(result_reg), arg);
+
+      if (rbits < abits) {
+         __ comment("TODO: truncate %d -> %d", abits, rbits);
+         __ nop();
+      }
+      else if (vtype_low(arg_type) < 0 && abits != rbits) {
+         __ comment("TODO: sign extend %d -> %d", abits, rbits);
+         __ nop();
+      }
+      else {
+         __ mov(result, arg);
+      }
+   }
+   else
+      should_not_reach_here("unexpected");
 }
 
 void Compiler::compile_range_null(int op)
@@ -553,9 +618,24 @@ void Compiler::compile_uarray_right(int op)
    __ nop();  // TODO
 }
 
-void Compiler::compile_uarray_dir(int op)
+void Compiler::compile_uarray_dir()
 {
-   __ nop();  // TODO
+   vcode_reg_t arg_reg = vcode_get_arg(op_, 0);
+   Mapping& uarray = map_vcode_reg(arg_reg);
+   assert(uarray.storage() == Mapping::STACK);
+
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
+
+   const size_t offs = uarray.stack_slot() + machine_.word_size();
+   __ ldr(dst, Bytecode::R(machine_.sp_reg()), offs);
+
+   const unsigned dim = vcode_get_dim(op_);
+   if (vtype_dims(vcode_reg_type(arg_reg)) > 1) {
+      assert(dim < 32);
+      __ andr(dst, 1 << dim);
+   }
+   else
+      assert(dim == 0);
 }
 
 void Compiler::compile_load_indirect()

@@ -16,6 +16,7 @@
 //
 
 #include "bytecode.hpp"
+#include "common.h"
 
 #include <vector>
 #include <map>
@@ -107,7 +108,8 @@ void Dumper::immed32()
 
 void Dumper::immed8()
 {
-   col_ += printer_.print("%s%d", pos_ == 0 ? " " : ", ", *bptr_);
+   int val = (int8_t)*bptr_;
+   col_ += printer_.print("%s%d", pos_ == 0 ? " " : ", ", val);
    bptr_++;
    pos_++;
 }
@@ -167,6 +169,16 @@ void Dumper::diassemble_one()
       opcode("ADDB");
       reg();
       immed8();
+      break;
+   case Bytecode::ANDB:
+      opcode("ANDB");
+      reg();
+      immed8();
+      break;
+   case Bytecode::ANDW:
+      opcode("ANDW");
+      reg();
+      immed32();
       break;
    case Bytecode::STR:
       opcode("STR");
@@ -418,11 +430,13 @@ void Bytecode::Assembler::mov(Register dst, int64_t value)
       emit_reg(dst);
       emit_u8(value);
    }
-   else {
+   else if (is_int32(value)) {
       emit_u8(Bytecode::MOVW);
       emit_reg(dst);
       emit_i32(value);
    }
+   else
+      should_not_reach_here("64-bit immediate");
 }
 
 void Bytecode::Assembler::add(Register dst, int64_t value)
@@ -431,11 +445,30 @@ void Bytecode::Assembler::add(Register dst, int64_t value)
       emit_u8(Bytecode::ADDB);
       emit_reg(dst);
       emit_u8(value);
-   } else {
+   }
+   else if (is_int32(value)) {
      emit_u8(Bytecode::ADDW);
      emit_reg(dst);
      emit_i32(value);
    }
+   else
+      should_not_reach_here("64-bit immediate");
+}
+
+void Bytecode::Assembler::andr(Register dst, int64_t value)
+{
+   if (is_int8(value)) {
+      emit_u8(Bytecode::ANDB);
+      emit_reg(dst);
+      emit_u8(value);
+   }
+   else if (is_int32(value)) {
+      emit_u8(Bytecode::ANDW);
+      emit_reg(dst);
+      emit_i32(value);
+   }
+   else
+      should_not_reach_here("64-bit immediate");
 }
 
 void Bytecode::Assembler::sub(Register dst, Register src)

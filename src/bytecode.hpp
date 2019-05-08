@@ -84,6 +84,8 @@ public:
       ADDB = 0x0f,     // Add 8-bit immediate to register
       JMPC = 0x10,     // Jump if condition code set
       SUB  = 0x11,     // Subtract two registers
+      ANDB = 0x12,     // Bitwise and with sign-extended 8-bit immediate
+      ANDW = 0x13,     // Bitwise and 32-bit immediate
    };
 
    enum Condition : uint8_t {
@@ -150,6 +152,7 @@ public:
       void jmp(Label& target, Condition cond);
       void mul(Register dst, Register rhs);
       void nop();
+      void andr(Register dst, int64_t value);
 
       Register sp() const { return Register{ machine_.sp_reg() }; };
 

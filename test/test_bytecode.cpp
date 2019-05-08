@@ -287,6 +287,74 @@ TEST_F(BytecodeTest, add_sub_reuse) {
    vcode_unit_unref(unit);
 }
 
+TEST_F(BytecodeTest, unwrap) {
+   vcode_type_t pi32_type = vtype_pointer(i32_type_);
+   vcode_unit_t unit = emit_function(ident_new("unwrap"),
+                                     context_, pi32_type);
+
+   vcode_type_t ui32_type = vtype_uarray(1, i32_type_, i32_type_);
+   vcode_reg_t p0 = emit_param(ui32_type, ui32_type, ident_new("p0"));
+
+   emit_return(emit_unwrap(p0));
+
+   vcode_opt();
+
+   Bytecode *b = compile(InterpMachine::get(), unit);
+   ASSERT_NE(nullptr, b);
+
+   check_bytecodes(b, {
+         Bytecode::LDR, 0, InterpMachine::get().sp_reg(), 0, 0,
+         Bytecode::RET
+      });
+
+   vcode_unit_unref(unit);
+}
+
+TEST_F(BytecodeTest, uarray_dir) {
+   vcode_unit_t unit = emit_function(ident_new("uarray_dir"),
+                                     context_, i32_type_);
+
+   vcode_type_t ui32_type = vtype_uarray(1, i32_type_, i32_type_);
+   vcode_reg_t p0 = emit_param(ui32_type, ui32_type, ident_new("p0"));
+
+   emit_return(emit_cast(i32_type_, i32_type_, emit_uarray_dir(p0, 0)));
+
+   vcode_opt();
+
+   Bytecode *b = compile(InterpMachine::get(), unit);
+   ASSERT_NE(nullptr, b);
+
+   check_bytecodes(b, {
+         Bytecode::LDR, 0, InterpMachine::get().sp_reg(), 4, 0,
+         Bytecode::RET
+      });
+
+   vcode_unit_unref(unit);
+}
+
+TEST_F(BytecodeTest, uarray_dir_highdim) {
+   vcode_unit_t unit = emit_function(ident_new("uarray_dir"),
+                                     context_, i32_type_);
+
+   vcode_type_t ui32_type = vtype_uarray(10, i32_type_, i32_type_);
+   vcode_reg_t p0 = emit_param(ui32_type, ui32_type, ident_new("p0"));
+
+   emit_return(emit_cast(i32_type_, i32_type_, emit_uarray_dir(p0, 9)));
+
+   vcode_opt();
+
+   Bytecode *b = compile(InterpMachine::get(), unit);
+   ASSERT_NE(nullptr, b);
+
+   check_bytecodes(b, {
+         Bytecode::LDR, 0, InterpMachine::get().sp_reg(), 4, 0,
+         Bytecode::ANDW, 0, 0, 2, 0, 0,
+         Bytecode::RET
+      });
+
+   vcode_unit_unref(unit);
+}
+
 extern "C" int run_gtests(int argc, char **argv)
 {
    InitGoogleTest(&argc, argv);

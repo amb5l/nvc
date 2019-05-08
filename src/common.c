@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2013-2018  Nick Gasson
+//  Copyright (C) 2013-2019  Nick Gasson
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -1067,4 +1067,14 @@ int relax_rules(void)
 void set_relax_rules(int mask)
 {
    relax = mask;
+}
+
+bool is_int8(int64_t x)
+{
+   return x >= INT8_MIN && x <= INT8_MAX;
+}
+
+bool is_int32(int64_t x)
+{
+   return x >= INT32_MIN && x <= INT32_MAX;
 }
