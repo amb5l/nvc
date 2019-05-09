@@ -303,7 +303,7 @@ TEST_F(BytecodeTest, unwrap) {
    ASSERT_NE(nullptr, b);
 
    check_bytecodes(b, {
-         Bytecode::LDR, 0, InterpMachine::get().sp_reg(), 0, 0,
+         Bytecode::LDR, 0, InterpMachine::SP_REG, 0, 0,
          Bytecode::RET
       });
 
@@ -325,7 +325,7 @@ TEST_F(BytecodeTest, uarray_dir) {
    ASSERT_NE(nullptr, b);
 
    check_bytecodes(b, {
-         Bytecode::LDR, 0, InterpMachine::get().sp_reg(), 4, 0,
+         Bytecode::LDR, 0, InterpMachine::SP_REG, 4, 0,
          Bytecode::RET
       });
 
@@ -347,7 +347,7 @@ TEST_F(BytecodeTest, uarray_dir_highdim) {
    ASSERT_NE(nullptr, b);
 
    check_bytecodes(b, {
-         Bytecode::LDR, 0, InterpMachine::get().sp_reg(), 4, 0,
+         Bytecode::LDR, 0, InterpMachine::SP_REG, 4, 0,
          Bytecode::ANDW, 0, 0, 2, 0, 0,
          Bytecode::RET
       });

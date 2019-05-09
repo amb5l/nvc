@@ -58,6 +58,7 @@ public:
 
    static const int NUM_REGS = 32;
    static const int WORD_SIZE = 4;
+   static const int SP_REG = NUM_REGS - 1;
 
 private:
    InterpMachine();

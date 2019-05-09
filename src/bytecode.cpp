@@ -627,7 +627,7 @@ int16_t Machine::read_i16(const uint8_t *p) const
 }
 
 InterpMachine::InterpMachine()
-   : Machine("interp", NUM_REGS, 0, NUM_REGS - 1, WORD_SIZE)
+   : Machine("interp", NUM_REGS, 0, SP_REG, WORD_SIZE)
 {
 }
 
