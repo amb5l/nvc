@@ -429,6 +429,34 @@ START_TEST(test_uarray_dir_highdim)
 }
 END_TEST
 
+START_TEST(test_uarray_left_right)
+{
+   vcode_unit_t unit = emit_function(ident_new("uarray_left_right"),
+                                     context, i32_type);
+
+   vcode_type_t ui32_type = vtype_uarray(1, i32_type, i32_type);
+   vcode_reg_t p0 = emit_param(ui32_type, ui32_type, ident_new("p0"));
+
+   vcode_reg_t left = emit_uarray_left(p0, 0);
+   vcode_reg_t right = emit_uarray_right(p0, 0);
+   emit_return(emit_cast(i32_type, i32_type, emit_add(left, right)));
+
+   vcode_opt();
+
+   Bytecode *b = compile(InterpMachine::get(), unit);
+   ASSERT_NE(nullptr, b);
+
+   check_bytecodes(b, {
+         Bytecode::LDR, _, InterpMachine::SP_REG, 8, 0,
+         Bytecode::LDR, _, InterpMachine::SP_REG, 12, 0,
+         Bytecode::ADD, 0, _,
+         Bytecode::RET
+      });
+
+   vcode_unit_unref(unit);
+}
+END_TEST
+
 extern "C" Suite *get_bytecode_tests(void)
 {
    Suite *s = suite_create("bytecode");
@@ -436,6 +464,7 @@ extern "C" Suite *get_bytecode_tests(void)
    TCase *tc = nvc_unit_test();
    tcase_add_checked_fixture(tc, setup, teardown);
    tcase_add_test(tc, test_uarray_dir_highdim);
+   tcase_add_test(tc, test_uarray_left_right);
    suite_add_tcase(s, tc);
 
    return s;

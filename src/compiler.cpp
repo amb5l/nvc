@@ -51,8 +51,8 @@ namespace {
       void compile_mul(int op);
       void compile_sub();
       void compile_add();
-      void compile_uarray_left(int op);
-      void compile_uarray_right(int op);
+      void compile_uarray_left();
+      void compile_uarray_right();
       void compile_uarray_dir();
       void compile_unwrap();
       void compile_cast();
@@ -495,10 +495,10 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
             compile_cond(j);
             break;
          case VCODE_OP_UARRAY_LEFT:
-            compile_uarray_left(j);
+            compile_uarray_left();
             break;
          case VCODE_OP_UARRAY_RIGHT:
-            compile_uarray_right(j);
+            compile_uarray_right();
             break;
          case VCODE_OP_UARRAY_DIR:
             compile_uarray_dir();
@@ -608,14 +608,28 @@ void Compiler::compile_range_null(int op)
    __ nop();  // TODO
 }
 
-void Compiler::compile_uarray_left(int op)
+void Compiler::compile_uarray_left()
 {
-   __ nop();  // TODO
+   vcode_reg_t arg_reg = vcode_get_arg(op_, 0);
+   Mapping& uarray = map_vcode_reg(arg_reg);
+   assert(uarray.storage() == Mapping::STACK);
+
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
+
+   const size_t offs = uarray.stack_slot() + machine_.word_size() + 4;
+   __ ldr(dst, Bytecode::R(machine_.sp_reg()), offs + 4 * vcode_get_dim(op_));
 }
 
-void Compiler::compile_uarray_right(int op)
+void Compiler::compile_uarray_right()
 {
-   __ nop();  // TODO
+   vcode_reg_t arg_reg = vcode_get_arg(op_, 0);
+   Mapping& uarray = map_vcode_reg(arg_reg);
+   assert(uarray.storage() == Mapping::STACK);
+
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
+
+   const size_t offs = uarray.stack_slot() + machine_.word_size() + 8;
+   __ ldr(dst, Bytecode::R(machine_.sp_reg()), offs + 4 * vcode_get_dim(op_));
 }
 
 void Compiler::compile_uarray_dir()
