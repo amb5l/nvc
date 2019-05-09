@@ -6,6 +6,8 @@
 
 #include <check.h>
 
+BEGIN_C_HEADER
+
 #define parse_and_check(...) ({                                    \
          static const tree_kind_t array[] = { __VA_ARGS__ };       \
          _parse_and_check(array, ARRAY_LEN(array), false, false);  \
@@ -24,13 +26,15 @@
 typedef struct {
    int        line;
    const char *snippet;
-} error_t;
+} nvc_error_t;
 
-void expect_errors(const error_t *lines);
+void expect_errors(const nvc_error_t *lines);
 TCase *nvc_unit_test(void);
 int nvc_run_test(Suite *s);
 tree_t run_elab(void);
 tree_t _parse_and_check(const tree_kind_t *array, int num,
                         bool simp, bool lower);
+
+END_C_HEADER
 
 #endif  // _TEST_UTIL_H

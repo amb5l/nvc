@@ -12,7 +12,7 @@ START_TEST(test_elab1)
 {
    input_from_file(TESTDIR "/elab/elab1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -25,7 +25,7 @@ START_TEST(test_elab2)
 {
    input_from_file(TESTDIR "/elab/elab2.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -38,7 +38,7 @@ START_TEST(test_elab3)
 {
    input_from_file(TESTDIR "/elab/elab3.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -51,7 +51,7 @@ START_TEST(test_elab4)
 {
    input_from_file(TESTDIR "/elab/elab4.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 21, "actual width 9 does not match formal X width 8" },
       { -1, NULL }
    };
@@ -67,7 +67,7 @@ START_TEST(test_open)
 
    input_from_file(TESTDIR "/elab/open.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -85,7 +85,7 @@ START_TEST(test_genagg)
 {
    input_from_file(TESTDIR "/elab/genagg.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -98,7 +98,7 @@ START_TEST(test_comp)
 {
    input_from_file(TESTDIR "/elab/comp.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 55, "port Y not found in entity WORK.E2" },
       { 77, "while elaborating instance E2_1 here"},
       { 14, "entity WORK.E2 declared here" },
@@ -115,7 +115,7 @@ START_TEST(test_issue17)
 {
    input_from_file(TESTDIR "/elab/issue17.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -128,7 +128,7 @@ START_TEST(test_issue19)
 {
    input_from_file(TESTDIR "/elab/issue19.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -143,7 +143,7 @@ START_TEST(test_bounds10)
 {
    input_from_file(TESTDIR "/elab/bounds10.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 10, "length of value 1 does not match length of target 101" },
       { 22, "while elaborating instance UC" },
       { -1, NULL }
@@ -158,7 +158,7 @@ START_TEST(test_copy1)
 {
    input_from_file(TESTDIR "/elab/copy1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -186,7 +186,7 @@ START_TEST(test_record)
 {
    input_from_file(TESTDIR "/elab/record.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -199,7 +199,7 @@ START_TEST(test_ifgen)
 {
    input_from_file(TESTDIR "/elab/ifgen.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -212,7 +212,7 @@ START_TEST(test_open2)
 {
    input_from_file(TESTDIR "/elab/open2.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -225,7 +225,7 @@ START_TEST(test_issue93)
 {
    input_from_file(TESTDIR "/elab/issue93.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -240,7 +240,7 @@ START_TEST(test_const1)
 {
    input_from_file(TESTDIR "/elab/const1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -275,7 +275,7 @@ START_TEST(test_issue153)
 {
    input_from_file(TESTDIR "/elab/issue153.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  9, "array S index -1 out of bounds 7 downto 0" },
       { 13, "array T index -1 out of bounds 7 downto 0" },
       { -1, NULL }
@@ -385,7 +385,7 @@ START_TEST(test_issue251)
 {
    input_from_file(TESTDIR "/elab/issue251.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 24, "array X index -1 out of bounds 3 downto 0" },
       { 30, "array A index -1 out of bounds 3 downto 0" },
       { -1, NULL }
@@ -414,7 +414,7 @@ START_TEST(test_eval1)
 {
    input_from_file(TESTDIR "/elab/eval1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 12, "array index -1 outside bounds 7 downto 0" },
       { 16, "while evaluating call to FUNC" },
       { 30, "while elaborating instance SUB_I" },

@@ -10,7 +10,7 @@
 
 START_TEST(test_bounds)
 {
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  26, "left index 0 violates constraint STD.STANDARD.POSITIVE" },
       {  27, "right index 60 violates constraint FOO" },
       {  31, "array S index -52 out of bounds 1 to 10" },
@@ -64,13 +64,13 @@ START_TEST(test_bounds)
    simplify(a, 0);
    bounds_check(a);
 
-   fail_unless(bounds_errors() == (sizeof(expect) / sizeof(error_t)) - 1);
+   fail_unless(bounds_errors() == (sizeof(expect) / sizeof(nvc_error_t)) - 1);
 }
 END_TEST
 
 START_TEST(test_bounds2)
 {
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  13, "assignment delay may not be negative"},
       {  20, "assignment delay may not be negative"},
       {  24, "assignment delay may not be negative"},
@@ -105,13 +105,13 @@ START_TEST(test_bounds2)
    simplify(a, 0);
    bounds_check(a);
 
-   fail_unless(bounds_errors() == (sizeof(expect) / sizeof(error_t)) - 1);
+   fail_unless(bounds_errors() == (sizeof(expect) / sizeof(nvc_error_t)) - 1);
 }
 END_TEST
 
 START_TEST(test_case)
 {
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  13, "missing choice C in case statement" },
       {  19, "missing choice B in case statement" },
       {  30, "10 to 19" },
@@ -140,7 +140,7 @@ START_TEST(test_case)
    simplify(a, 0);
    bounds_check(a);
 
-   fail_unless(bounds_errors() == (sizeof(expect) / sizeof(error_t)) - 1);
+   fail_unless(bounds_errors() == (sizeof(expect) / sizeof(nvc_error_t)) - 1);
 }
 END_TEST
 
@@ -160,7 +160,7 @@ END_TEST
 
 START_TEST(test_issue54)
 {
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 12, "aggregate index 3 out of bounds 7 downto 4" },
       { 12, "aggregate index 0 out of bounds 7 downto 4" },
       { -1, NULL }
@@ -175,13 +175,13 @@ START_TEST(test_issue54)
    simplify(a, 0);
    bounds_check(a);
 
-   fail_unless(bounds_errors() == (sizeof(expect) / sizeof(error_t)) - 1);
+   fail_unless(bounds_errors() == (sizeof(expect) / sizeof(nvc_error_t)) - 1);
 }
 END_TEST
 
 START_TEST(test_issue99)
 {
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  7, "type conversion argument -1.5 out of bounds 0 to 2147483647" },
       {  8, "type conversion argument -1 out of bounds 1 to 5" },
       { -1, NULL }
@@ -196,13 +196,13 @@ START_TEST(test_issue99)
    simplify(a, 0);
    bounds_check(a);
 
-   fail_unless(bounds_errors() == (sizeof(expect) / sizeof(error_t)) - 1);
+   fail_unless(bounds_errors() == (sizeof(expect) / sizeof(nvc_error_t)) - 1);
 }
 END_TEST
 
 START_TEST(test_issue150)
 {
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 10, "expected 8 elements in aggregate but have 6" },
       { -1, NULL }
    };
@@ -216,7 +216,7 @@ START_TEST(test_issue150)
    simplify(a, 0);
    bounds_check(a);
 
-   fail_unless(bounds_errors() == (sizeof(expect) / sizeof(error_t)) - 1);
+   fail_unless(bounds_errors() == (sizeof(expect) / sizeof(nvc_error_t)) - 1);
 }
 END_TEST
 
@@ -236,7 +236,7 @@ END_TEST
 
 START_TEST(test_issue208)
 {
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 20, "case choices do not cover the following values of " },
       { -1, NULL }
    };
@@ -256,7 +256,7 @@ END_TEST
 
 START_TEST(test_issue247)
 {
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -275,7 +275,7 @@ END_TEST
 
 START_TEST(test_issue269)
 {
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);

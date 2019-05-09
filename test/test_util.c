@@ -7,9 +7,9 @@
 #include <stdlib.h>
 #include <time.h>
 
-static const error_t *error_lines = NULL;
-static error_fn_t     orig_error_fn = NULL;
-static lib_t          test_lib = NULL;
+static const nvc_error_t *error_lines   = NULL;
+static error_fn_t         orig_error_fn = NULL;
+static lib_t              test_lib      = NULL;
 
 static void test_error_fn(const char *msg, const loc_t *loc)
 {
@@ -57,7 +57,7 @@ static void teardown_per_test(void)
    test_lib = NULL;
 }
 
-void expect_errors(const error_t *lines)
+void expect_errors(const nvc_error_t *lines)
 {
 #ifdef __MINGW32__
    error_fn_t old_fn = set_error_fn(test_error_fn, false);

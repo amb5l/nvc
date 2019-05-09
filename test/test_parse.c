@@ -1874,7 +1874,7 @@ START_TEST(test_bitstring)
 
    input_from_file(TESTDIR "/parse/bitstring.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 22, "invalid digit '9' in bit string" },
       { -1, NULL }
    };
@@ -2101,7 +2101,7 @@ START_TEST(test_bitstring)
    p = parse();
    fail_unless(p == NULL);
 
-   fail_unless(parse_errors() == (sizeof(expect) / sizeof(error_t)) - 1);
+   fail_unless(parse_errors() == (sizeof(expect) / sizeof(nvc_error_t)) - 1);
 }
 END_TEST
 
@@ -2466,7 +2466,7 @@ START_TEST(test_error)
 
    input_from_file(TESTDIR "/parse/error.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  4, "unexpected identifier while parsing concurrent procedure call "
          "statement, expecting ;" },
       {  8, "unexpected identifier while parsing concurrent procedure call "
@@ -2593,7 +2593,7 @@ START_TEST(test_context)
 
    input_from_file(TESTDIR "/parse/context.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 13, "context clause preceeding context declaration must be empty" },
       { -1, NULL }
    };
@@ -2625,7 +2625,7 @@ START_TEST(test_issue222)
 {
    input_from_file(TESTDIR "/parse/issue222.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 13, "component instantiation statement must have a label" },
       { 22, "block statement must have a label" },
       { 32, "component instantiation statement must have a label" },
@@ -2669,7 +2669,7 @@ START_TEST(test_cond1)
 {
    input_from_file(TESTDIR "/parse/cond1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 10, "\"this is a warning\"" },
       { 13, "\"Using nvc\"" },
       { 21, "\"correct\"" },
@@ -2698,7 +2698,7 @@ START_TEST(test_issue360)
 {
    input_from_file(TESTDIR "/parse/issue360.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  8, "unexpected ; while parsing process statement, expecting process" },
       { -1, NULL }
    };

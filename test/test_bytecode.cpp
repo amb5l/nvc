@@ -5,9 +5,45 @@
 #include <gtest/gtest.h>
 #include <map>
 
+#include "test_util.h"
+
 #define __ asm_.
 
 using namespace testing;
+
+namespace {
+   struct CheckBytecode {
+      CheckBytecode(uint16_t v) : value(v) {}
+
+      static const uint16_t DONT_CARE = 0xffff;
+      static const uint16_t REG_MASK  = 0x0100;
+
+      uint16_t value;
+   };
+
+}
+
+static const CheckBytecode _(CheckBytecode::DONT_CARE);
+static const CheckBytecode _1(CheckBytecode::REG_MASK | 1);
+static const CheckBytecode _2(CheckBytecode::REG_MASK | 2);
+static const CheckBytecode _3(CheckBytecode::REG_MASK | 3);
+static const CheckBytecode _4(CheckBytecode::REG_MASK | 4);
+
+static vcode_unit_t context = nullptr;
+static vcode_type_t i32_type = VCODE_INVALID_TYPE;
+
+static void setup(void)
+{
+   context = emit_context(ident_new("unit_test"));
+   i32_type = vtype_int(INT32_MIN, INT32_MAX);
+}
+
+static void teardown(void)
+{
+   vcode_unit_unref(context);
+   context = nullptr;
+   i32_type = VCODE_INVALID_TYPE;
+}
 
 class BytecodeTest : public ::testing::Test {
 protected:
@@ -23,18 +59,6 @@ protected:
    static void SetUpTestCase();
    static void TearDownTestCase();
 
-   struct CheckBytecode {
-      CheckBytecode(uint16_t v) : value(v) {}
-
-      static const uint16_t DONT_CARE = 0xffff;
-      static const uint16_t REG_MASK  = 0x0100;
-
-      uint16_t value;
-   };
-
-   static const CheckBytecode _;
-   static const CheckBytecode _1, _2, _3, _4;
-
    void check_bytecodes(const Bytecode *b,
                         const std::vector<CheckBytecode>&& expect);
 
@@ -45,12 +69,6 @@ protected:
 private:
    static lib_t work_;
 };
-
-const BytecodeTest::CheckBytecode BytecodeTest::_(CheckBytecode::DONT_CARE);
-const BytecodeTest::CheckBytecode BytecodeTest::_1(CheckBytecode::REG_MASK | 1);
-const BytecodeTest::CheckBytecode BytecodeTest::_2(CheckBytecode::REG_MASK | 2);
-const BytecodeTest::CheckBytecode BytecodeTest::_3(CheckBytecode::REG_MASK | 3);
-const BytecodeTest::CheckBytecode BytecodeTest::_4(CheckBytecode::REG_MASK | 4);
 
 lib_t BytecodeTest::work_(nullptr);
 
@@ -141,6 +159,60 @@ void BytecodeTest::check_bytecodes(const Bytecode *b,
 
    EXPECT_EQ(b->length(), p - b->bytes()) << "did not match all bytecodes"
                                           << std::endl << std::endl << *b;
+}
+
+void check_bytecodes(const Bytecode *b,
+                     const std::vector<CheckBytecode>&& expect)
+{
+   const uint8_t *p = b->bytes();
+   std::map<int, int> match;
+
+   for (const CheckBytecode& c : expect) {
+      if (p >= b->bytes() + b->length()) {
+         fail("expected more than %d bytecodes", b->length());
+         return;
+      }
+      else if ((c.value & 0xff00) == 0) {
+         // Directly compare the bytecode
+         if (c.value != *p) {
+            BufferPrinter printer;
+            b->dump(printer);
+            fail("bytecode mismatch at offset %d\n\n%s",
+                 p - b->bytes(), printer.buffer());
+         }
+         else if (c.value != *p)
+            return;
+         ++p;
+      }
+      else if (c.value == CheckBytecode::DONT_CARE)
+         ++p;
+      else if ((c.value & CheckBytecode::REG_MASK) == CheckBytecode::REG_MASK) {
+         const int num = c.value & 0xff;
+         if (match.find(num) == match.end())
+            match[num] = *p;
+         else {
+            if (match[num] != *p) {
+               BufferPrinter printer;
+               b->dump(printer);
+               fail("placeholder _%d mismatch at offset %d\n\n%s",
+                    num, p - b->bytes(), printer.buffer());
+            }
+            else if (match[num] != *p)
+               return;
+         }
+         ++p;
+      }
+      else {
+         fail("unexpected bytecode check %x", c.value);
+         return;
+      }
+   }
+
+   if ((int)b->length() != p - b->bytes()) {
+      BufferPrinter printer;
+      b->dump(printer);
+      fail("did not match all bytecodes\n\n%s", printer.buffer());
+   }
 }
 
 TEST_F(BytecodeTest, compile_add1) {
@@ -332,14 +404,15 @@ TEST_F(BytecodeTest, uarray_dir) {
    vcode_unit_unref(unit);
 }
 
-TEST_F(BytecodeTest, uarray_dir_highdim) {
+START_TEST(test_uarray_dir_highdim)
+{
    vcode_unit_t unit = emit_function(ident_new("uarray_dir"),
-                                     context_, i32_type_);
+                                     context, i32_type);
 
-   vcode_type_t ui32_type = vtype_uarray(10, i32_type_, i32_type_);
+   vcode_type_t ui32_type = vtype_uarray(10, i32_type, i32_type);
    vcode_reg_t p0 = emit_param(ui32_type, ui32_type, ident_new("p0"));
 
-   emit_return(emit_cast(i32_type_, i32_type_, emit_uarray_dir(p0, 9)));
+   emit_return(emit_cast(i32_type, i32_type, emit_uarray_dir(p0, 9)));
 
    vcode_opt();
 
@@ -353,6 +426,19 @@ TEST_F(BytecodeTest, uarray_dir_highdim) {
       });
 
    vcode_unit_unref(unit);
+}
+END_TEST
+
+extern "C" Suite *get_bytecode_tests(void)
+{
+   Suite *s = suite_create("bytecode");
+
+   TCase *tc = nvc_unit_test();
+   tcase_add_checked_fixture(tc, setup, teardown);
+   tcase_add_test(tc, test_uarray_dir_highdim);
+   suite_add_tcase(s, tc);
+
+   return s;
 }
 
 extern "C" int run_gtests(int argc, char **argv)

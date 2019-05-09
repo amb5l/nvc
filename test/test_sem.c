@@ -28,7 +28,7 @@ START_TEST(test_integer)
    fail_unless(parse() == NULL);
    fail_unless(parse_errors() == 0);
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 20, "MY_INT1 does not match type of target MY_INT2" },
       { 30, "MY_INT1 does not match type of target MY_INT2_SUB" },
       { 35, "type NOTHING is not declared" },
@@ -78,7 +78,7 @@ START_TEST(test_ports)
 {
    input_from_file(TESTDIR "/sem/ports.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 31,  "cannot read output port O" },
       { 42,  "cannot assign to input port I" },
       { 81,  "missing actual for formal I of mode IN without a default expression" },
@@ -125,7 +125,7 @@ START_TEST(test_scope)
 {
    input_from_file(TESTDIR "/sem/scope.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  31, "WORK.PACK1.MY_INT1 does not match type"
          " of target WORK.PACK2.MY_INT1" },
       {  44, "WORK.PACK1.MY_INT1 does not match type of target MY_INT1" },
@@ -162,7 +162,7 @@ START_TEST(test_ambiguous)
 
    input_from_file(TESTDIR "/sem/ambiguous.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 35,  "type of value BAR does not match type of target FOO" },
       { 56,  "type of aggregate is ambiguous" },
       { 86,  "ambiguous use of enumeration literal FALSE" },
@@ -238,7 +238,7 @@ START_TEST(test_const)
 {
    input_from_file(TESTDIR "/sem/const.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 24, "invalid target of variable assignment" },
       { 28, "deferred constant declarations are only permitted" },
       { 58, "constant WORK.P.C already has a value" },
@@ -298,7 +298,7 @@ START_TEST(test_wait)
 {
    input_from_file(TESTDIR "/sem/wait.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 17, "type of delay must be TIME" },
       { 26, "name V in sensitivity list is not a signal" },
       { 35, "invalid use of entity A" },
@@ -349,7 +349,7 @@ START_TEST(test_func)
 {
    input_from_file(TESTDIR "/sem/func.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {   5, "function arguments must have mode IN" },
       {  17, "must be an unconstrained array type" },
       {  21, "resolution function must have single argument" },
@@ -390,7 +390,7 @@ START_TEST(test_array)
 {
    input_from_file(TESTDIR "/sem/array.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 27, "positional associations must appear first in aggregate" },
       { 33, "named association must not follow others" },
       { 39, "only a single others association allowed" },
@@ -439,7 +439,7 @@ START_TEST(test_assert)
 {
    input_from_file(TESTDIR "/sem/assert.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 17, "type of assertion expression must be BOOLEAN" },
       { 22, "type of message be STRING" },
       { 27, "type of severity must be SEVERITY_LEVEL" },
@@ -457,7 +457,7 @@ START_TEST(test_generics)
 {
    input_from_file(TESTDIR "/sem/generics.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  34, "missing actual for formal N" },
       {  38, "too many positional actuals" },
       {  48, "no visible declaration for X" },
@@ -479,7 +479,7 @@ START_TEST(test_seq)
 {
    input_from_file(TESTDIR "/sem/seq.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  15, "type of test must be BOOLEAN" },
       {  19, "no visible declaration for X" },
       {  25, "name TRUE cannot be used in this context" },
@@ -518,7 +518,7 @@ START_TEST(test_conc)
 {
    input_from_file(TESTDIR "/sem/conc.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 12, "name '4' cannot be used in this context" },
       { 16, "type of condition must be BOOLEAN" },
       { 18, "reject interval must have type TIME" },
@@ -539,7 +539,7 @@ START_TEST(test_procedure)
 {
    input_from_file(TESTDIR "/sem/procedure.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {   5, "subprogram body is not allowed in package specification" },
       {  28, "cannot return a value from a procedure" },
       {  45, "type of default value universal integer does not match" },
@@ -575,7 +575,7 @@ START_TEST(test_concat)
 {
    input_from_file(TESTDIR "/sem/concat.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 24, "type of scalar does not match element type of array" },
       { 26, "cannot concatenate values of different types" },
       { -1, NULL }
@@ -592,7 +592,7 @@ START_TEST(test_conv)
 {
    input_from_file(TESTDIR "/sem/conv.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 28, "conversion only allowed between closely related types" },
       { 29, "type of value B does not match type of target A" },
       { 31, "conversion only allowed between closely related types" },
@@ -610,7 +610,7 @@ START_TEST(test_attr)
 {
    input_from_file(TESTDIR "/sem/attr.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  30, "Z has no attribute FOO" },
       {  54, "prefix of user defined attribute reference cannot denote" },
       {  65, "expected attribute type INTEGER" },
@@ -638,7 +638,7 @@ START_TEST(test_generate)
 {
    input_from_file(TESTDIR "/sem/generate.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 15, "condition of generate statement must be BOOLEAN" },
       { 26, "no visible declaration for Y" },
       { 45, "condition of generate statement must be static" },
@@ -657,7 +657,7 @@ START_TEST(test_record)
 {
    input_from_file(TESTDIR "/sem/record.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {   9, "duplicate field name X" },
       {  15, "recursive record types are not allowed" },
       {  30, "field X with unconstrained array type is not allowed" },
@@ -688,7 +688,7 @@ START_TEST(test_file)
 {
    input_from_file(TESTDIR "/sem/file.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  6, "files may not be of access type" },
       {  8, "files may not be of file type" },
       { 12, "file declarations must have file type" },
@@ -715,7 +715,7 @@ START_TEST(test_access)
 {
    input_from_file(TESTDIR "/sem/access.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  5, "no visible declaration for FOO" },
       { 34, "null expression must have access type" },
       { 38, "invalid allocator expression" },
@@ -740,7 +740,7 @@ START_TEST(test_real)
 {
    input_from_file(TESTDIR "/sem/real.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 16, "type of value MY_REAL does not match type of target" },
       { 25, "conversion only allowed between closely related types" },
       { 38, "type of left bound INTEGER does not match type of right" },
@@ -758,7 +758,7 @@ START_TEST(test_entity)
 {
    input_from_file(TESTDIR "/sem/entity.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 26, "unit WORK.PACK is not an entity" },
       { 30, "unit WORK.PACK is not an entity" },
       { -1, NULL }
@@ -775,7 +775,7 @@ START_TEST(test_signal)
 {
    input_from_file(TESTDIR "/sem/signal.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 14, "no composite type in context" },
       { 15, "no one dimensional arrays of character type in context" },
       { 16, "not a suitable l-value" },
@@ -800,7 +800,7 @@ START_TEST(test_static)
 {
    input_from_file(TESTDIR "/sem/static.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 36, "case choice must be locally static" },
       { 42, "case choice must be locally static" },
       { 65, "actual must be globally static expression or locally static" },
@@ -819,7 +819,7 @@ START_TEST(test_subtype)
 {
    input_from_file(TESTDIR "/sem/subtype.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  9, "expected type of range bound to be STD.STANDARD.INTEGER but is" },
       { 16, "undefined resolution function NOT_HERE" },
       { -1, NULL }
@@ -836,7 +836,7 @@ START_TEST(test_universal)
 {
    input_from_file(TESTDIR "/sem/universal.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 12, "no suitable overload for operator \"*\" [REAL" },
       { 14, "no suitable overload for operator \"*\" [INTEGER" },
       { 16, "no suitable overload for operator \"/\" [universal real" },
@@ -874,7 +874,7 @@ START_TEST(test_spec)
 {
    input_from_file(TESTDIR "/sem/spec.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 22, "component mismatch for instance I1: expected C1" },
       { 24, "object E is not a component declaration" },
       { 28, "instance BAD not found" },
@@ -908,7 +908,7 @@ START_TEST(test_supersede)
 {
    input_from_file(TESTDIR "/sem/supersede.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 18, "WORK.PORTLISTTEST has no formal A" },
       { 19, "WORK.PORTLISTTEST has no formal B" },
       { -1, NULL }
@@ -925,7 +925,7 @@ START_TEST(test_implicit)
 {
    input_from_file(TESTDIR "/sem/implicit.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 12, "attribute DELAYED parameter must have type TIME" },
       { -1, NULL }
    };
@@ -954,7 +954,7 @@ START_TEST(test_protected)
 
    input_from_file(TESTDIR "/sem/protected.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  13, "no visible declaration for NOT_HERE" },
       {  19, "no protected type declaration for BAD2 found" },
       {  22, "object INTEGER is not a protected type declaration" },
@@ -985,7 +985,7 @@ START_TEST(test_protected2)
 
    input_from_file(TESTDIR "/sem/protected2.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  5, "constants may not have protected type" },
       {  5, "deferred constant C was not given a value in the package body" },
       { 20, "files may not be of protected type" },
@@ -1009,7 +1009,7 @@ START_TEST(test_alias)
 {
    input_from_file(TESTDIR "/sem/alias.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 10, "non-object alias may not have subtype indication" },
       { 12, "name X does not refer to a type" },
       { 22, "no visible subprogram FOO matches signature [INTEGER "
@@ -1063,7 +1063,7 @@ START_TEST(test_issue88)
 {
    input_from_file(TESTDIR "/sem/issue88.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 31, "record type REC2 has no field P" },
       { -1, NULL }
    };
@@ -1142,7 +1142,7 @@ START_TEST(test_issue144)
 {
    input_from_file(TESTDIR "/sem/issue144.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 11, "duplicate subprogram body for function FUN [return INTEGER]" },
       { 20, "duplicate subprogram body for procedure PROC [INTEGER]" },
       { -1, NULL }
@@ -1179,7 +1179,7 @@ START_TEST(test_issue165)
 {
    input_from_file(TESTDIR "/sem/issue165.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  5, "no visible declaration for TYPE_T" },
       { 11, "no suitable overload for procedure PROC [universal integer]" },
       { -1, NULL }
@@ -1239,7 +1239,7 @@ START_TEST(test_issue178)
 
    input_from_file(TESTDIR "/sem/issue178.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 13, "wait statement not allowed in protected subprogram body" },
       { -1, NULL }
    };
@@ -1255,7 +1255,7 @@ START_TEST(test_issue177)
 {
    input_from_file(TESTDIR "/sem/issue177.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  9, "wait statement not allowed in function body" },
       { -1, NULL }
    };
@@ -1271,7 +1271,7 @@ START_TEST(test_use)
 {
    input_from_file(TESTDIR "/sem/use.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 25, "no visible declaration for MY_INT3" },
       { -1, NULL }
    };
@@ -1333,7 +1333,7 @@ START_TEST(test_varinit)
 {
    input_from_file(TESTDIR "/sem/varinit.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 26, "cannot reference signal SIZE during static elaboration" },
       { 37, "cannot reference signal SIZE during static elaboration" },
       { 39, "cannot reference signal SIZE during static elaboration" },
@@ -1365,7 +1365,7 @@ START_TEST(test_issue176)
 {
    input_from_file(TESTDIR "/sem/issue176.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 36, "function MAIN.FUN cannot call procedure MAIN.PROC_WAIT" },
       { 37, "function MAIN.FUN cannot call procedure MAIN.PROC_WAIT which" },
       { 51, "function FUN2 cannot call procedure WORK.PACK.PROC" },
@@ -1385,7 +1385,7 @@ START_TEST(test_context)
 
    input_from_file(TESTDIR "/sem/context.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 26, "unit FOO.PACK is not a context declaration" },
       { 39, "library clause in a context declaration may not have logical" },
       { 40, "context declaration use clause may not have WORK" },
@@ -1430,7 +1430,7 @@ START_TEST(test_issue188)
 {
    input_from_file(TESTDIR "/sem/issue188.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  9, "cannot declare a file object in a pure function" },
       { 29, "invalid reference to F inside pure function FILE_FUNC2" },
       { 46, "call procedure CALL_READ_B which references a file object" },
@@ -1469,7 +1469,7 @@ START_TEST(test_issue224)
 {
    input_from_file(TESTDIR "/sem/issue224.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  6, "parameter of class SIGNAL can not have a default value" },
       { 18, "actual for formal A with class SIGNAL must not be OPEN" },
       { 24, "parameter of class VARIABLE with mode OUT or INOUT can not have a default value" },
@@ -1501,7 +1501,7 @@ START_TEST(test_issue236)
 {
    input_from_file(TESTDIR "/sem/issue236.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 24,  "missing actual for formal B of mode IN without a default expression" },
       { 36,  "missing actual for formal C with unconstrained array type" },
       { -1, NULL }
@@ -1518,7 +1518,7 @@ START_TEST(test_issue239)
 {
    input_from_file(TESTDIR "/sem/issue239.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 16,  "default value must be a static expression" },
       { 23,  "default value must be a static expression" },
       { -1, NULL }
@@ -1535,7 +1535,7 @@ START_TEST(test_interfaces)
 {
    input_from_file(TESTDIR "/sem/interfaces.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 13,  "invalid object class for port" },
       { 17,  "invalid object class for port" },
       { 21,  "invalid object class for port" },
@@ -1562,7 +1562,7 @@ START_TEST(test_file_and_access)
 {
    input_from_file(TESTDIR "/sem/file_and_access.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 10, "constants may not have access type" },
       { 11, "constants may not have a type with a subelement of access type" },
       { 12, "constants may not have a type with a subelement of access type" },
@@ -1597,7 +1597,7 @@ START_TEST(test_issue264)
 {
    input_from_file(TESTDIR "/sem/issue264.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 23, "no visible one dimensional array type with element INTEGER" },
       { 26, "result of concatenation is ambiguous" },
       { 35, "case expression must have a discrete type or one dimensional" },
@@ -1615,7 +1615,7 @@ START_TEST(test_issue226)
 {
    input_from_file(TESTDIR "/sem/issue226.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 14, "no visible declaration for IEEE in name IEEE.STD_LOGIC_" },
       { -1, NULL }
    };
@@ -1656,7 +1656,7 @@ START_TEST(test_dwlau)
 {
    input_from_file(TESTDIR "/sem/dwlau.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 20, "no suitable overload for operator \"*\"" },
       { -1, NULL }
    };
@@ -1672,7 +1672,7 @@ START_TEST(test_jcore1)
 {
    input_from_file(TESTDIR "/sem/jcore1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 15, "no visible declaration for STD_LOGIC" },
       { 25, "no visible declaration for STD_LOGIC" },
       { 45, "no visible declaration for PIPELINE_EX_T" },
@@ -1700,7 +1700,7 @@ START_TEST(test_issue311)
 {
    input_from_file(TESTDIR "/sem/issue311.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 33, "name P2.EVENT_1 cannot be used in this context" },
       { -1, NULL }
    };
@@ -1731,7 +1731,7 @@ START_TEST(test_issue316)
 {
    input_from_file(TESTDIR "/sem/issue316.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 30, "actual for formal REG_IN with class SIGNAL must be a name" },
       { -1, NULL }
    };
@@ -1757,7 +1757,7 @@ START_TEST(test_issue246)
 {
    input_from_file(TESTDIR "/sem/issue246.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  2, "index constraint cannot be used with non-array type INTEGER" },
       {  3, "range constraint cannot be used with non-scalar type STRING" },
       { -1, NULL }
@@ -1774,7 +1774,7 @@ START_TEST(test_issue356)
 {
    input_from_file(TESTDIR "/sem/issue356.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 17, "case expression must have locally static subtype" },
       { -1, NULL }
    };
@@ -1790,7 +1790,7 @@ START_TEST(test_issue359)
 {
    input_from_file(TESTDIR "/sem/issue359.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  8, "FOO already declared in this region" },
       {  6, "previous declaration of FOO was here" },
       { -1, NULL }
@@ -1807,7 +1807,7 @@ START_TEST(test_issue359a)
 {
    input_from_file(TESTDIR "/sem/issue359a.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 15, "invalid use of procedure HOST_WRITE" },
       { -1, NULL }
    };
@@ -1823,7 +1823,7 @@ START_TEST(test_issue368)
 {
    input_from_file(TESTDIR "/sem/issue368.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 17, "with mode IN does not match mode OUT in specification" },
       {  6, "parameter SIG_IN was originally declared here" },
       { 18, "parameter SIG_OUT of subprogram body WORK.NVC_PACKAGE_BUG" },
@@ -1888,7 +1888,7 @@ START_TEST(test_issue232)
 {
    input_from_file(TESTDIR "/sem/issue232.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 20, "sub-elements of composite port cannot be associated with OPEN" },
       { -1, NULL }
    };
@@ -1904,7 +1904,7 @@ START_TEST(test_issue341)
 {
    input_from_file(TESTDIR "/sem/issue341.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 23, "name 'y' cannot be used in this context (BIT)" },
       { -1, NULL }
    };
@@ -1952,7 +1952,7 @@ START_TEST(test_issue377)
 {
    input_from_file(TESTDIR "/sem/issue377.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { 20, "ambiguous use of operator \"=\"" },
       { 29, "ambiguous use of operator \"=\"" },
       { -1, NULL }

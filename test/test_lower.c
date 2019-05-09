@@ -342,7 +342,7 @@ START_TEST(test_wait1)
 {
    input_from_file(TESTDIR "/lower/wait1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -406,7 +406,7 @@ START_TEST(test_assign1)
 {
    input_from_file(TESTDIR "/lower/assign1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -487,7 +487,7 @@ START_TEST(test_assign2)
 {
    input_from_file(TESTDIR "/lower/assign2.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -550,7 +550,7 @@ START_TEST(test_signal1)
 {
    input_from_file(TESTDIR "/lower/signal1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -614,7 +614,7 @@ START_TEST(test_cond1)
 {
    input_from_file(TESTDIR "/lower/cond1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -696,7 +696,7 @@ START_TEST(test_arith1)
 {
    input_from_file(TESTDIR "/lower/arith1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -803,7 +803,7 @@ START_TEST(test_pack1)
 {
    input_from_file(TESTDIR "/lower/pack1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -842,7 +842,7 @@ START_TEST(test_func1)
 {
    input_from_file(TESTDIR "/lower/func1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -876,7 +876,7 @@ START_TEST(test_issue94)
 {
    input_from_file(TESTDIR "/lower/issue94.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -890,7 +890,7 @@ START_TEST(test_arrayop1)
 {
    input_from_file(TESTDIR "/lower/arrayop1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -969,7 +969,7 @@ START_TEST(test_array1)
 {
    input_from_file(TESTDIR "/lower/array1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1019,7 +1019,7 @@ START_TEST(test_nest1)
 {
    input_from_file(TESTDIR "/lower/nest1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1094,7 +1094,7 @@ START_TEST(test_signal2)
 {
    input_from_file(TESTDIR "/lower/signal2.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1130,7 +1130,7 @@ START_TEST(test_attr1)
 {
    input_from_file(TESTDIR "/lower/attr1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1181,7 +1181,7 @@ START_TEST(test_assign3)
 {
    input_from_file(TESTDIR "/lower/assign3.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1212,7 +1212,7 @@ START_TEST(test_record1)
 {
    input_from_file(TESTDIR "/lower/record1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1273,7 +1273,7 @@ START_TEST(test_signal4)
 {
    input_from_file(TESTDIR "/lower/signal4.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1306,7 +1306,7 @@ START_TEST(test_staticwait)
 {
    input_from_file(TESTDIR "/lower/staticwait.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1344,7 +1344,7 @@ START_TEST(test_proc1)
 {
    input_from_file(TESTDIR "/lower/proc1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1397,7 +1397,7 @@ START_TEST(test_while1)
 {
    input_from_file(TESTDIR "/lower/while1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1433,7 +1433,7 @@ START_TEST(test_loop1)
 {
    input_from_file(TESTDIR "/lower/loop1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1473,7 +1473,7 @@ START_TEST(test_proc3)
 {
    input_from_file(TESTDIR "/lower/proc3.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1527,7 +1527,7 @@ START_TEST(test_loop2)
 {
    input_from_file(TESTDIR "/lower/loop2.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1558,7 +1558,7 @@ START_TEST(test_slice1)
 {
    input_from_file(TESTDIR "/lower/slice1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1601,7 +1601,7 @@ START_TEST(test_funcif)
 {
    input_from_file(TESTDIR "/lower/funcif.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1620,7 +1620,7 @@ START_TEST(test_memset)
 {
    input_from_file(TESTDIR "/lower/memset.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1683,7 +1683,7 @@ START_TEST(test_func5)
 {
    input_from_file(TESTDIR "/lower/func5.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1744,7 +1744,7 @@ START_TEST(test_bounds1)
 {
    input_from_file(TESTDIR "/lower/bounds1.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1783,7 +1783,7 @@ START_TEST(test_record6)
 {
    input_from_file(TESTDIR "/lower/record6.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1819,7 +1819,7 @@ START_TEST(test_proc7)
 {
    input_from_file(TESTDIR "/lower/proc7.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1870,7 +1870,7 @@ START_TEST(test_issue116)
 {
    input_from_file(TESTDIR "/lower/issue116.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1898,7 +1898,7 @@ START_TEST(test_mulphys)
 {
    input_from_file(TESTDIR "/lower/mulphys.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1924,7 +1924,7 @@ START_TEST(test_cover)
 {
    input_from_file(TESTDIR "/lower/cover.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1972,7 +1972,7 @@ START_TEST(test_issue122)
 {
    input_from_file(TESTDIR "/lower/issue122.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -1997,7 +1997,7 @@ START_TEST(test_issue124)
 {
    input_from_file(TESTDIR "/lower/issue124.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       { -1, NULL }
    };
    expect_errors(expect);
@@ -2067,7 +2067,7 @@ START_TEST(test_issue134)
 {
    input_from_file(TESTDIR "/lower/issue134.vhd");
 
-   const error_t expect[] = {
+   const nvc_error_t expect[] = {
       {  8, "statement is unreachable" },
       {  8, "statement is unreachable" },
       { -1, NULL }
