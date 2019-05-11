@@ -117,13 +117,6 @@ Interpreter::reg_t Interpreter::run(const Bytecode *code)
          regs_[a] = !!(flags_ & b);
          break;
 
-      case Bytecode::CBNZ:
-         a = reg();
-         b = imm16();
-         if (regs_[a] != 0)
-            bci_ += b - 2;
-         break;
-
       case Bytecode::JMP:
          a = imm16();
          bci_ += a - 2;

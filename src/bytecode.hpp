@@ -67,26 +67,28 @@ private:
 class Bytecode {
 public:
    enum OpCode : uint8_t {
-      NOP  = 0x00,     // Do nothing
-      MOVW = 0x01,     // Move 32-bit literal to register
-      RET  = 0x02,     // Return from function
-      ADD  = 0x03,     // Add two registers
-      MOV  = 0x04,     // Move register to another register
-      ADDW = 0x05,     // Add 32-bit immediate to register
-      STR  = 0x06,     // Store register to memory (indirect)
-      LDR  = 0x07,     // Load register from memory (indirect)
-      MUL  = 0x08,     // Multiply 32-bit registers
-      CMP  = 0x09,     // Compare two registers
-      CSET = 0x0a,     // Set register based on flags
-      JMP  = 0x0b,     // Jump to address
-      CBZ  = 0x0c,     // Compare and branch if zero
-      CBNZ = 0x0d,     // Compare and branch if non-zero
-      MOVB = 0x0e,     // Move 8-bit literal to register
-      ADDB = 0x0f,     // Add 8-bit immediate to register
-      JMPC = 0x10,     // Jump if condition code set
-      SUB  = 0x11,     // Subtract two registers
-      ANDB = 0x12,     // Bitwise and with sign-extended 8-bit immediate
-      ANDW = 0x13,     // Bitwise and 32-bit immediate
+      NOP   = 0x00,     // Do nothing
+      MOVW  = 0x01,     // Move 32-bit literal to register
+      RET   = 0x02,     // Return from function
+      ADD   = 0x03,     // Add two registers
+      MOV   = 0x04,     // Move register to another register
+      ADDW  = 0x05,     // Add 32-bit immediate to register
+      STR   = 0x06,     // Store register to memory (indirect)
+      LDR   = 0x07,     // Load register from memory (indirect)
+      MUL   = 0x08,     // Multiply 32-bit registers
+      CMP   = 0x09,     // Compare two registers
+      CSET  = 0x0a,     // Set register based on flags
+      JMP   = 0x0b,     // Jump to address
+      // Unused 0x0c
+      // Unused 0x0d
+      MOVB  = 0x0e,     // Move 8-bit literal to register
+      ADDB  = 0x0f,     // Add 8-bit immediate to register
+      JMPC  = 0x10,     // Jump if condition code set
+      SUB   = 0x11,     // Subtract two registers
+      ANDB  = 0x12,     // Bitwise and with sign-extended 8-bit immediate
+      ANDW  = 0x13,     // Bitwise and 32-bit immediate
+      TESTB = 0x14,     // Mask 8-bit immediate and set flags
+      TESTW = 0x15,     // Mask 32-bit immediate and set flags
    };
 
    enum Condition : uint8_t {
@@ -147,13 +149,12 @@ public:
       void ret();
       void cmp(Register lhs, Register rhs);
       void cset(Register dst, Condition cond);
-      void cbz(Register src, Label& label);
-      void cbnz(Register src, Label& label);
       void jmp(Label& label);
       void jmp(Label& target, Condition cond);
       void mul(Register dst, Register rhs);
       void nop();
       void andr(Register dst, int64_t value);
+      void test(Register dst, int64_t value);
 
       Register sp() const { return Register{ machine_.sp_reg() }; };
 

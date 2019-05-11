@@ -56,7 +56,7 @@ namespace {
       void compile_uarray_dir();
       void compile_unwrap();
       void compile_cast();
-      void compile_range_null(int op);
+      void compile_range_null();
       void compile_select(int op);
       void compile_load_indirect();
 
@@ -507,7 +507,7 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
             compile_cast();
             break;
          case VCODE_OP_RANGE_NULL:
-            compile_range_null(j);
+            compile_range_null();
             break;
          case VCODE_OP_SELECT:
             compile_select(j);
@@ -603,9 +603,25 @@ void Compiler::compile_cast()
       should_not_reach_here("unexpected");
 }
 
-void Compiler::compile_range_null(int op)
+void Compiler::compile_range_null()
 {
-   __ nop();  // TODO
+   Bytecode::Label Ldone, Ldownto;
+
+   Bytecode::Register left  = in_reg(map_vcode_reg(vcode_get_arg(op_, 0)));
+   Bytecode::Register right = in_reg(map_vcode_reg(vcode_get_arg(op_, 1)));
+   Bytecode::Register dir   = in_reg(map_vcode_reg(vcode_get_arg(op_, 2)));
+   Bytecode::Register dst   = in_reg(map_vcode_reg(vcode_get_result(op_)));
+
+   __ comment("Null range check");
+   __ test(dir, 1);
+   __ jmp(Ldownto, Bytecode::EQ);
+   __ cmp(left, right);
+   __ cset(dst, Bytecode::GT);
+   __ jmp(Ldone);
+   __ bind(Ldownto);
+   __ cmp(left, right);
+   __ cset(dst, Bytecode::LT);
+   __ bind(Ldone);
 }
 
 void Compiler::compile_uarray_left()
@@ -646,7 +662,8 @@ void Compiler::compile_uarray_dir()
    const unsigned dim = vcode_get_dim(op_);
    if (vtype_dims(vcode_reg_type(arg_reg)) > 1) {
       assert(dim < 32);
-      __ andr(dst, 1 << dim);
+      __ test(dst, 1 << dim);
+      __ cset(dst, Bytecode::NE);
    }
    else
       assert(dim == 0);
@@ -721,7 +738,8 @@ void Compiler::compile_cond(int op)
    else {
       Bytecode::Register src = in_reg(test);
       spill_live();
-      __ cbnz(src, label_for_block(vcode_get_target(op, 0)));
+      __ test(src, 1);
+      __ jmp(label_for_block(vcode_get_target(op, 0)), Bytecode::NZ);
    }
 
    __ jmp(label_for_block(vcode_get_target(op, 1)));
@@ -783,7 +801,8 @@ void Compiler::compile_select(int op)
       __ jmp(skip, sel.cond());
    }
    else {
-      __ cbz(in_reg(sel), skip);
+      __ test(in_reg(sel), 1);
+      __ jmp(skip, Bytecode::NZ);
    }
    __ mov(dst, rhs);
    __ bind(skip);

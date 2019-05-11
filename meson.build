@@ -56,6 +56,7 @@ nvc = executable('nvc', driver_src,
 
 unit_test = executable('unit_test', test_src,
                        dependencies : [check],
+                       build_by_default : false,
                        link_with : libnvc,
                        include_directories : [src_inc, config_inc])
 test('unit_test', unit_test)

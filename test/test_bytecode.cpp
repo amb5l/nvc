@@ -182,8 +182,8 @@ START_TEST(test_patch)
    __ bind(L1);
    __ jmp(L1);
    __ jmp(L1);
-   __ cbnz(Bytecode::R(0), L1);
-   __ cbnz(Bytecode::R(0), L1);
+   __ jmp(L1, Bytecode::LT);
+   __ jmp(L1, Bytecode::GT);
 
    __ patch_branch(3, 0);
    __ patch_branch(6, 10);
@@ -193,8 +193,8 @@ START_TEST(test_patch)
    check_bytecodes(b, {
          Bytecode::JMP, 0xff, 0xff,
          Bytecode::JMP, 0xfc, 0xff,
-         Bytecode::CBNZ, 0, 0x02, 0x00,
-         Bytecode::CBNZ, 0, 0xf4, 0xff,
+         Bytecode::JMPC, Bytecode::LT, 0x02, 0x00,
+         Bytecode::JMPC, Bytecode::GT, 0xf4, 0xff,
       });
 }
 END_TEST
@@ -349,7 +349,8 @@ START_TEST(test_uarray_dir_highdim)
 
    check_bytecodes(b, {
          Bytecode::LDR, 0, InterpMachine::SP_REG, 4, 0,
-         Bytecode::ANDW, 0, 0, 2, 0, 0,
+         Bytecode::TESTW, 0, 0, 2, 0, 0,
+         Bytecode::CSET, 0, Bytecode::NZ,
          Bytecode::RET
       });
 
@@ -385,6 +386,43 @@ START_TEST(test_uarray_left_right)
 }
 END_TEST
 
+START_TEST(test_range_null)
+{
+   vcode_unit_t unit = emit_function(ident_new("range_null"),
+                                     context, vtype_bool());
+
+   vcode_type_t ui32_type = vtype_uarray(1, i32_type, i32_type);
+   vcode_reg_t p0 = emit_param(ui32_type, ui32_type, ident_new("p0"));
+
+   vcode_reg_t left = emit_uarray_left(p0, 0);
+   vcode_reg_t right = emit_uarray_right(p0, 0);
+   vcode_reg_t dir = emit_uarray_dir(p0, 0);
+   emit_return(emit_range_null(left, right, dir));
+
+   vcode_opt();
+
+   Bytecode *b = compile(InterpMachine::get(), unit);
+   fail_if(nullptr == b);
+
+   check_bytecodes(b, {
+         Bytecode::LDR, _, InterpMachine::SP_REG, 8, 0,
+         Bytecode::LDR, _, InterpMachine::SP_REG, 12, 0,
+         Bytecode::LDR, _1, InterpMachine::SP_REG, 4, 0,
+         Bytecode::TESTB, _1, 1,
+         Bytecode::JMPC, Bytecode::Z, _, _,
+         Bytecode::CMP, _, _,
+         Bytecode::CSET, _, Bytecode::GT,
+         Bytecode::JMP, _, _,
+         Bytecode::CMP, _, _,
+         Bytecode::CSET, _, Bytecode::LT,
+         Bytecode::MOV, 0, _,
+         Bytecode::RET
+      });
+
+   vcode_unit_unref(unit);
+}
+END_TEST
+
 extern "C" Suite *get_bytecode_tests(void)
 {
    Suite *s = suite_create("bytecode");
@@ -402,6 +440,7 @@ extern "C" Suite *get_bytecode_tests(void)
    tcase_add_test(tc, test_uarray_dir_highdim);
    tcase_add_test(tc, test_uarray_left_right);
    tcase_add_test(tc, test_add_sub_reuse);
+   tcase_add_test(tc, test_range_null);
    suite_add_tcase(s, tc);
 
    return s;

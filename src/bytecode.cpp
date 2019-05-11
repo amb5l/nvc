@@ -180,6 +180,16 @@ void Dumper::diassemble_one()
       reg();
       immed32();
       break;
+   case Bytecode::TESTB:
+      opcode("TESTB");
+      reg();
+      immed8();
+      break;
+   case Bytecode::TESTW:
+      opcode("TESTW");
+      reg();
+      immed32();
+      break;
    case Bytecode::STR:
       opcode("STR");
       indirect();
@@ -207,16 +217,6 @@ void Dumper::diassemble_one()
       break;
    case Bytecode::JMP:
       opcode("JMP");
-      jump_target();
-      break;
-   case Bytecode::CBZ:
-      opcode("CBZ");
-      reg();
-      jump_target();
-      break;
-   case Bytecode::CBNZ:
-      opcode("CBNZ");
-      reg();
       jump_target();
       break;
    case Bytecode::JMPC:
@@ -366,22 +366,6 @@ void Bytecode::Assembler::cset(Register dst, Condition cond)
    emit_u8(cond);
 }
 
-void Bytecode::Assembler::cbnz(Register src, Label& target)
-{
-   const unsigned start = bytes_.size();
-   emit_u8(Bytecode::CBNZ);
-   emit_reg(src);
-   emit_branch(start, target);
-}
-
-void Bytecode::Assembler::cbz(Register src, Label& target)
-{
-   const unsigned start = bytes_.size();
-   emit_u8(Bytecode::CBZ);
-   emit_reg(src);
-   emit_branch(start, target);
-}
-
 void Bytecode::Assembler::jmp(Label& target)
 {
    const unsigned start = bytes_.size();
@@ -471,6 +455,22 @@ void Bytecode::Assembler::andr(Register dst, int64_t value)
       should_not_reach_here("64-bit immediate");
 }
 
+void Bytecode::Assembler::test(Register dst, int64_t value)
+{
+   if (is_int8(value)) {
+      emit_u8(Bytecode::TESTB);
+      emit_reg(dst);
+      emit_u8(value);
+   }
+   else if (is_int32(value)) {
+      emit_u8(Bytecode::TESTW);
+      emit_reg(dst);
+      emit_i32(value);
+   }
+   else
+      should_not_reach_here("64-bit immediate");
+}
+
 void Bytecode::Assembler::sub(Register dst, Register src)
 {
    emit_u8(Bytecode::SUB);
@@ -527,9 +527,7 @@ void Bytecode::Assembler::patch_branch(unsigned offset, unsigned abs)
 {
    switch (bytes_[offset]) {
    case Bytecode::JMP:  offset += 1; break;
-   case Bytecode::JMPC:
-   case Bytecode::CBZ:
-   case Bytecode::CBNZ: offset += 2; break;
+   case Bytecode::JMPC: offset += 2; break;
    default:
       should_not_reach_here("cannot patch %02x", bytes_[offset]);
    }
