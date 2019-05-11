@@ -205,20 +205,6 @@ START_TEST(test_compile_fact)
 }
 END_TEST
 
-START_TEST(test_compile_sum)
-{
-   vcode_unit_t unit = vcode_find_unit(
-      ident_new("BC.FUNCTIONS.SUM(22BC.FUNCTIONS.INT_ARRAY)I"));
-   fail_if(nullptr == unit);
-
-   Bytecode *b = compile(InterpMachine::get(), unit);
-   fail_if(nullptr == b);
-
-   vcode_dump();
-   b->dump();
-}
-END_TEST
-
 START_TEST(test_add_sub_reuse)
 {
    vcode_unit_t unit = emit_function(ident_new("add_sub_reuse"),
@@ -390,6 +376,33 @@ START_TEST(test_range_null)
 }
 END_TEST
 
+START_TEST(test_uarray_deref)
+{
+   vcode_unit_t unit = emit_function(ident_new("uarray_deref"),
+                                     context, i32_type);
+
+   vcode_type_t ui32_type = vtype_uarray(1, i32_type, i32_type);
+   vcode_reg_t p0 = emit_param(ui32_type, ui32_type, ident_new("p0"));
+
+   vcode_reg_t data = emit_unwrap(p0);
+   emit_return(emit_load_indirect(data));
+
+   vcode_opt();
+
+   Bytecode *b = compile(InterpMachine::get(), unit);
+   fail_if(nullptr == b);
+
+   check_bytecodes(b, {
+         Bytecode::LDR, _, InterpMachine::SP_REG, 8, 0,
+         Bytecode::LDR, _, InterpMachine::SP_REG, 12, 0,
+         Bytecode::ADD, 0, _,
+         Bytecode::RET
+      });
+
+   vcode_unit_unref(unit);
+}
+END_TEST
+
 extern "C" Suite *get_bytecode_tests(void)
 {
    Suite *s = suite_create("bytecode");
@@ -399,7 +412,6 @@ extern "C" Suite *get_bytecode_tests(void)
    tcase_add_checked_fixture(tc, setup, teardown);
    tcase_add_test(tc, test_compile_add1);
    tcase_add_test(tc, test_patch);
-   tcase_add_test(tc, test_compile_sum);
    tcase_add_test(tc, test_compile_fact);
    tcase_add_test(tc, test_select);
    tcase_add_test(tc, test_unwrap);
@@ -408,6 +420,7 @@ extern "C" Suite *get_bytecode_tests(void)
    tcase_add_test(tc, test_uarray_left_right);
    tcase_add_test(tc, test_add_sub_reuse);
    tcase_add_test(tc, test_range_null);
+   tcase_add_test(tc, test_uarray_deref);
    suite_add_tcase(s, tc);
 
    return s;

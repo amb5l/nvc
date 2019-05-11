@@ -166,6 +166,8 @@ static struct option  *options = NULL;
 static guard_t        *guards;
 static message_style_t message_style = MESSAGE_FULL;
 static hint_t         *hints = NULL;
+static dump_fn_t       dump_callback = NULL;
+static void           *dump_context = NULL;
 
 static const struct color_escape escapes[] = {
    { "",        ANSI_RESET },
@@ -180,12 +182,12 @@ static const struct color_escape escapes[] = {
    { "white",   ANSI_FG_WHITE },
 };
 
-static char *filter_color(const char *str, bool force_plain)
+char *filter_color(const char *str, bool force_plain)
 {
    // Replace color strings like "$red$foo$$bar" with ANSI escaped
    // strings like "\033[31mfoo\033[0mbar"
 
-   const size_t maxlen = strlen(str) * 2;
+   const size_t maxlen = MAX(strlen(str) * 2, 8);
    char *copy = xmalloc(maxlen);
    char *p = copy;
    char *eptr = copy + maxlen;
@@ -204,15 +206,14 @@ static char *filter_color(const char *str, bool force_plain)
                bool found = false;
                for (int i = 0; i < ARRAY_LEN(escapes); i++) {
                   if (strncmp(e, escapes[i].name, len) == 0) {
-                     p += snprintf(p, eptr - p, "\033[%dm", escapes[i].value);
+                     p += checked_sprintf(p, eptr - p, "\033[%dm", escapes[i].value);
                      found = true;
                      break;
                   }
                }
 
                if (!found) {
-                  strncpy(p, escape_start, len + 1);
-                  p += len + 1;
+                  p += checked_sprintf(p, eptr - p, "%s", escape_start);
                   escape_start = str;
                }
                else
@@ -228,11 +229,8 @@ static char *filter_color(const char *str, bool force_plain)
       ++str;
    }
 
-   if (escape_start != NULL) {
-      const size_t len = str - escape_start;
-      strncpy(p, escape_start, len + 1);
-      p += len + 1;
-   }
+   if (escape_start != NULL)
+      p += checked_sprintf(p, eptr - p, "%s", escape_start);
 
    *p = '\0';
 
@@ -1071,6 +1069,14 @@ static void bt_sighandler(int sig, siginfo_t *info, void *secret)
 
    color_fprintf(stderr, " ***$$\n");
 
+   if (dump_callback != NULL) {
+      fprintf(stderr, "\n");
+      dump_fn_t tmp = dump_callback;
+      dump_callback = NULL;
+      (*tmp)(dump_context);
+      dump_context = NULL;
+   }
+
 #if defined HAVE_LIBDW
    fprintf(stderr, "\n");
    int skip = 2;
@@ -1839,4 +1845,10 @@ const char *safe_symbol(const char *text)
 #else
    return text;
 #endif
+}
+
+void set_dump_callback(dump_fn_t callback, void *context)
+{
+   dump_callback = callback;
+   dump_context = context;
 }

@@ -21,7 +21,6 @@
 #include "vcode.h"
 #include "printer.hpp"
 
-#include <iosfwd>
 #include <vector>
 #include <map>
 
@@ -182,8 +181,8 @@ public:
    const Machine& machine() const { return machine_; }
    unsigned frame_size() const { return frame_size_; }
 
-   void dump(Printer&& printer = StdoutPrinter()) const;
-   void dump(Printer& printer) const;
+   void dump(Printer&& printer = StdoutPrinter(), int mark_bci=-1) const;
+   void dump(Printer& printer, int mark_bci=-1) const;
 
 #if DEBUG
    const char *comment(const uint8_t *bptr) const;
@@ -209,5 +208,3 @@ private:
    std::map<int, char *> comments_;
 #endif
 };
-
-std::ostream& operator<<(std::ostream& os, const Bytecode& b);

@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2011-2018  Nick Gasson
+//  Copyright (C) 2011-2019  Nick Gasson
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -103,6 +103,7 @@ char *xasprintf(const char *fmt, ...)
 int color_printf(const char *fmt, ...)
    __attribute__((format(printf, 1, 2)));
 int color_vprintf(const char *fmt, va_list ap);
+char *filter_color(const char *str, bool force_plain);
 
 void errorf(const char *fmt, ...)
    __attribute__((format(printf, 1, 2)));
@@ -228,6 +229,9 @@ void file_unlock(int fd);
 void *map_file(int fd, size_t size);
 void unmap_file(void *ptr, size_t size);
 void make_dir(const char *path);
+
+typedef void (*dump_fn_t)(void *);
+void set_dump_callback(dump_fn_t callback, void *context);
 
 END_C_HEADER
 

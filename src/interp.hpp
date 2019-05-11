@@ -18,9 +18,10 @@
 #pragma once
 
 #include "util.h"
+#include "util/crashdump.hpp"
 #include "bytecode.hpp"
 
-class Interpreter {
+class Interpreter : private CrashHandler {
 public:
    Interpreter();
 
@@ -31,10 +32,13 @@ public:
    void set_reg(unsigned num, reg_t value);
    void push(uint32_t word);
    void reset();
+   void dump();
 
 private:
    Interpreter(const Interpreter&) = delete;
    Interpreter(Interpreter&&) = delete;
+
+   void on_crash() override;
 
    inline Bytecode::OpCode opcode();
    inline uint8_t reg();
@@ -54,6 +58,7 @@ private:
 
    const Bytecode *bytecode_ = nullptr;
    unsigned        bci_ = 0;
+   unsigned        last_bci_ = 0;
    const uint8_t  *bytes_ = nullptr;
    reg_t           regs_[InterpMachine::NUM_REGS];
    uint8_t         flags_ = 0;

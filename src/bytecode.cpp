@@ -27,7 +27,7 @@
 namespace {
    class Dumper {
    public:
-      Dumper(Printer& printer, const Bytecode *b);
+      Dumper(Printer& printer, const Bytecode *b, int mark_bci);
 
       void dump();
 
@@ -46,13 +46,15 @@ namespace {
       Printer&        printer_;
 
       int col_ = 0, pos_ = 0;
+      int mark_bci_;
    };
 }
 
-Dumper::Dumper(Printer& printer, const Bytecode *b)
+Dumper::Dumper(Printer& printer, const Bytecode *b, int mark_bci)
    : bptr_(b->bytes()),
      bytecode_(b),
-     printer_(printer)
+     printer_(printer),
+     mark_bci_(mark_bci)
 {
 }
 
@@ -89,9 +91,14 @@ void Dumper::condition()
 
 void Dumper::indirect()
 {
-   col_ += printer_.print("%s[%s%+d]", pos_ == 0 ? " " : ", ",
-                          bytecode_->machine().fmt_reg(*bptr_),
-                          bytecode_->machine().read_i16(bptr_ + 1));
+   int offset = bytecode_->machine().read_i16(bptr_ + 1);
+
+   if (offset == 0)
+      col_ += printer_.print("%s[%s]", pos_ == 0 ? " " : ", ",
+                             bytecode_->machine().fmt_reg(*bptr_));
+   else
+      col_ += printer_.print("%s[%s%+d]", pos_ == 0 ? " " : ", ",
+                             bytecode_->machine().fmt_reg(*bptr_), offset);
    bptr_ += 3;
    pos_++;
 }
@@ -241,7 +248,12 @@ void Dumper::dump()
       col_ = 0;
       pos_ = 0;
 
-      col_ += printer_.print("%4d ", (int)(bptr_ - bytecode_->bytes()));
+      const int bci = bptr_ - bytecode_->bytes();
+
+      if (bci == mark_bci_)
+         printer_.color_print("$bold$$red$");
+
+      col_ += printer_.print("%c%4d ", bci == mark_bci_ ? '*' : ' ', bci);
 
       diassemble_one();
 
@@ -260,6 +272,9 @@ void Dumper::dump()
          printer_.print("; %s", comment);
       }
 #endif
+
+      if (bci == mark_bci_)
+         printer_.color_print("$$");
 
       printer_.print("\n");
 
@@ -290,14 +305,14 @@ Bytecode::~Bytecode()
 #endif
 }
 
-void Bytecode::dump(Printer&& printer) const
+void Bytecode::dump(Printer&& printer, int mark_bci) const
 {
-   Dumper(printer, this).dump();
+   Dumper(printer, this, mark_bci).dump();
 }
 
-void Bytecode::dump(Printer& printer) const
+void Bytecode::dump(Printer& printer, int mark_bci) const
 {
-   Dumper(printer, this).dump();
+   Dumper(printer, this, mark_bci).dump();
 }
 
 #if DEBUG
@@ -633,11 +648,4 @@ const InterpMachine& InterpMachine::get()
 {
    static InterpMachine m;
    return m;
-}
-
-std::ostream& operator<<(std::ostream& os, const Bytecode& b)
-{
-   BufferPrinter printer;
-   b.dump(printer);
-   return os << printer.buffer();
 }

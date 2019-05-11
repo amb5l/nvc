@@ -37,6 +37,7 @@ lib_src = files(
   'type.c',
   'util.c',
   'util/bitmask.cpp',
+  'util/crashdump.cpp',
   'vcode.c',
 )
 

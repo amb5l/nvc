@@ -20,18 +20,45 @@
 #include <cstdarg>
 #include <cstdlib>
 
-int FilePrinter::print(const char *fmt, ...)
+int Printer::print(const char *fmt, ...)
 {
    std::va_list ap;
    va_start(ap, fmt);
-   int nchars = vfprintf(file_, fmt, ap);
+   int nchars = print(fmt, ap);
    va_end(ap);
    return nchars;
+}
+
+int Printer::color_print(const char *fmt, ...)
+{
+   std::va_list ap;
+   va_start(ap, fmt);
+   int nchars = color_print(fmt, ap);
+   va_end(ap);
+   return nchars;
+}
+
+int Printer::color_print(const char *fmt, va_list ap)
+{
+   char *filtered_fmt = filter_color(fmt, true);
+   int nchars = print(filtered_fmt, ap);
+   free(filtered_fmt);
+   return nchars;
+}
+
+int FilePrinter::print(const char *fmt, va_list ap)
+{
+   return vfprintf(file_, fmt, ap);
 }
 
 StdoutPrinter::StdoutPrinter()
    : FilePrinter(stdout)
 {
+}
+
+int StdoutPrinter::color_print(const char *fmt, va_list ap)
+{
+   return color_vprintf(fmt, ap);
 }
 
 BufferPrinter::BufferPrinter()
@@ -48,12 +75,12 @@ BufferPrinter::~BufferPrinter()
    free(buffer_);
 }
 
-int BufferPrinter::print(const char *fmt, ...)
+int BufferPrinter::print(const char *fmt, va_list ap)
 {
-   std::va_list ap;
-   va_start(ap, fmt);
    int nchars = vsnprintf(wptr_, buffer_ + len_ - wptr_, fmt, ap);
-   va_end(ap);
+
+   va_list ap_copy;
+   va_copy(ap_copy, ap);
 
    if (wptr_ + nchars + 1 > buffer_ + len_) {
       const size_t offset = wptr_ - buffer_;
@@ -63,10 +90,10 @@ int BufferPrinter::print(const char *fmt, ...)
       len_ = nlen;
       wptr_ = buffer_ + offset;
 
-      va_start(ap, fmt);
       vsnprintf(wptr_, buffer_ + len_ - wptr_, fmt, ap);
-      va_end(ap);
    }
+
+   va_end(ap_copy);
 
    wptr_ += nchars;
    return nchars;

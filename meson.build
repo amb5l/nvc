@@ -6,6 +6,9 @@ project('nvc', ['c', 'cpp'],
 
 add_project_arguments('-DHAVE_CONFIG_H', language : ['c', 'cpp'])
 
+add_project_arguments('-fno-rtti', language : ['cpp'])
+add_project_arguments('-fno-exceptions', language : ['cpp'])
+
 pkgdatadir = join_paths(get_option('datadir'), 'nvc')
 
 compiler = meson.get_compiler('c')

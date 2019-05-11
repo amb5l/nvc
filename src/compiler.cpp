@@ -671,7 +671,10 @@ void Compiler::compile_uarray_dir()
 
 void Compiler::compile_load_indirect()
 {
-   __ nop();  // TODO
+   Bytecode::Register src = in_reg(map_vcode_reg(vcode_get_arg(op_, 0)));
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)), src);
+
+   __ ldr(dst, src, 0);
 }
 
 void Compiler::compile_addi(int op)

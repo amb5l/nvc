@@ -89,6 +89,24 @@ START_TEST(test_uarray_len)
 }
 END_TEST
 
+START_TEST(test_uarray_sum)
+{
+   vcode_unit_t unit = vcode_find_unit(
+      ident_new("BC.FUNCTIONS.SUM(22BC.FUNCTIONS.INT_ARRAY)I"));
+   fail_if(unit == nullptr);
+
+   Interpreter interp;
+   Bytecode *b = compile(InterpMachine::get(), unit);
+
+   interp.push(10);        // Right
+   interp.push(2);         // Left
+   interp.push(RANGE_TO);  // Direction
+   interp.push(0);         // Data pointer
+
+   ck_assert_int_eq(9, interp.run(b));
+}
+END_TEST
+
 extern "C" Suite *get_interp_tests(void)
 {
    Suite *s = suite_create("interp");
@@ -98,6 +116,7 @@ extern "C" Suite *get_interp_tests(void)
    tcase_add_test(tc, test_fact);
    tcase_add_test(tc, test_add1);
    tcase_add_test(tc, test_uarray_len);
+   tcase_add_test(tc, test_uarray_sum);
    suite_add_tcase(s, tc);
 
    return s;

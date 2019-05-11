@@ -105,14 +105,19 @@ inline uint32_t& Interpreter::mem_access(int reg, int offset, int size)
 
 Interpreter::reg_t Interpreter::run(const Bytecode *code)
 {
+   WithCrashHandler handler(this);
+
    bytecode_ = code;
    bytes_ = code->bytes();
    bci_ = 0;
+   last_bci_ = 0;
 
    assert(regs_[InterpMachine::SP_REG] - code->frame_size() >= 0);
 
    int32_t a, b, c;
    for (;;) {
+      last_bci_ = bci_;
+
       switch (opcode()) {
       case Bytecode::ADDB:
          a = reg();
@@ -134,6 +139,9 @@ Interpreter::reg_t Interpreter::run(const Bytecode *code)
 
       case Bytecode::RET:
          return regs_[0];
+
+      case Bytecode::NOP:
+         break;
 
       case Bytecode::MOVB:
          a = reg();
@@ -215,4 +223,14 @@ void Interpreter::set_reg(unsigned num, reg_t value)
 {
    assert(num < InterpMachine::NUM_REGS);
    regs_[num] = value;
+}
+
+void Interpreter::on_crash()
+{
+   bytecode_->dump(StdoutPrinter(), last_bci_);
+
+   printf("\nRegisters:\n  ");
+   for (int i = 0; i < InterpMachine::NUM_REGS; i++)
+      printf("R%-2d %08x%s", i, regs_[i], i % 4 == 3 ? "\n  " : "    ");
+   printf("\n");
 }

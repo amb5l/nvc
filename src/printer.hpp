@@ -25,14 +25,21 @@ struct Printer {
    virtual ~Printer() {}
 
    __attribute__((format(printf, 2, 3)))
-   virtual int print(const char *fmt, ...) = 0;
+   virtual int print(const char *fmt, ...);
+
+   __attribute__((format(printf, 2, 3)))
+   virtual int color_print(const char *fmt, ...);
+
+   virtual int color_print(const char *fmt, va_list ap);
+
+   virtual int print(const char *fmt, va_list ap) = 0;
 };
 
 class FilePrinter : public Printer {
 public:
    FilePrinter(FILE *f) : file_(f) {}
 
-   int print(const char *fmt, ...);
+   int print(const char *fmt, va_list ap) override;
 
 private:
    FILE *file_;
@@ -41,6 +48,8 @@ private:
 class StdoutPrinter : public FilePrinter {
 public:
    StdoutPrinter();
+
+   int color_print(const char *fmt, va_list ap) override;
 };
 
 class BufferPrinter : public Printer {
@@ -49,7 +58,7 @@ public:
    ~BufferPrinter();
    BufferPrinter(const BufferPrinter&) = delete;
 
-   int print(const char *fmt, ...);
+   int print(const char *fmt, va_list ap) override;
    const char *buffer() const { return buffer_; }
 
 private:
