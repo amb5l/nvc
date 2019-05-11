@@ -1,15 +1,11 @@
 #include "bytecode.hpp"
 #include "vcode.h"
 #include "phase.h"
-
-#include <gtest/gtest.h>
-#include <map>
-
 #include "test_util.h"
 
-#define __ asm_.
+#include <map>
 
-using namespace testing;
+#define __ _asm.
 
 namespace {
    struct CheckBytecode {
@@ -20,7 +16,6 @@ namespace {
 
       uint16_t value;
    };
-
 }
 
 static const CheckBytecode _(CheckBytecode::DONT_CARE);
@@ -31,138 +26,55 @@ static const CheckBytecode _4(CheckBytecode::REG_MASK | 4);
 
 static vcode_unit_t context = nullptr;
 static vcode_type_t i32_type = VCODE_INVALID_TYPE;
+static lib_t work = nullptr;
 
-static void setup(void)
+static void setup()
 {
    context = emit_context(ident_new("unit_test"));
    i32_type = vtype_int(INT32_MIN, INT32_MAX);
 }
 
-static void teardown(void)
+static void teardown()
 {
    vcode_unit_unref(context);
    context = nullptr;
    i32_type = VCODE_INVALID_TYPE;
 }
 
-class BytecodeTest : public ::testing::Test {
-protected:
-   BytecodeTest()
-      : asm_(InterpMachine::get())
-   {}
-
-   using OpCode = Bytecode::OpCode;
-
-   virtual void SetUp() override;
-   virtual void TearDown() override;
-
-   static void SetUpTestCase();
-   static void TearDownTestCase();
-
-   void check_bytecodes(const Bytecode *b,
-                        const std::vector<CheckBytecode>&& expect);
-
-   Bytecode::Assembler asm_;
-   vcode_unit_t        context_ = nullptr;
-   vcode_type_t        i32_type_ = VCODE_INVALID_TYPE;
-
-private:
-   static lib_t work_;
-};
-
-lib_t BytecodeTest::work_(nullptr);
-
-void BytecodeTest::SetUp()
+static void global_setup()
 {
-   context_ = emit_context(ident_new("gtest"));
-   i32_type_ = vtype_int(INT32_MIN, INT32_MAX);
-}
-
-void BytecodeTest::TearDown()
-{
-   vcode_unit_unref(context_);
-   context_ = nullptr;
-}
-
-void BytecodeTest::SetUpTestCase()
-{
-   work_ = lib_tmp("gtest");
-   lib_set_work(work_);
+   work = lib_tmp("gtest");
+   lib_set_work(work);
 
    input_from_file(TESTDIR "/bytecode/functions.vhd");
 
    tree_t pack = parse();
-   ASSERT_NE(nullptr, pack);
-   EXPECT_EQ(T_PACKAGE, tree_kind(pack));
-   EXPECT_TRUE(sem_check(pack));
+   fail_if(nullptr == pack);
+   fail_unless(T_PACKAGE, tree_kind(pack));
+   fail_unless(sem_check(pack));
 
    tree_t body = parse();
-   ASSERT_NE(nullptr, body);
-   EXPECT_EQ(T_PACK_BODY, tree_kind(body));
-   EXPECT_TRUE(sem_check(body));
+   fail_if(nullptr == body);
+   fail_unless(T_PACK_BODY, tree_kind(body));
+   fail_unless(sem_check(body));
 
    simplify(body, (eval_flags_t)0);
    lower_unit(body);
 
-   EXPECT_EQ(nullptr, parse());
-   EXPECT_EQ(0, parse_errors());
-   EXPECT_EQ(0, sem_errors());
+   fail_unless(nullptr == parse());
+   fail_unless(0 == parse_errors());
+   fail_unless(0 == sem_errors());
 }
 
-void BytecodeTest::TearDownTestCase()
+static void global_teardown()
 {
    lib_set_work(nullptr);
-   lib_free(work_);
-   work_ = nullptr;
+   lib_free(work);
+   work = nullptr;
 }
 
-void BytecodeTest::check_bytecodes(const Bytecode *b,
-                                   const std::vector<CheckBytecode>&& expect)
-{
-   const uint8_t *p = b->bytes();
-   std::map<int, int> match;
-
-   for (const CheckBytecode& c : expect) {
-      if (p >= b->bytes() + b->length()) {
-         FAIL() << "expected more than " << b->length() << " bytecodes";
-         return;
-      }
-      else if ((c.value & 0xff00) == 0) {
-         // Directly compare the bytecode
-         EXPECT_EQ(c.value, *p) << "bytecode mismatch at offset "
-                                << (p - b->bytes())
-                                << std::endl << std::endl << *b;
-         if (c.value != *p)
-            return;
-         ++p;
-      }
-      else if (c.value == CheckBytecode::DONT_CARE)
-         ++p;
-      else if ((c.value & CheckBytecode::REG_MASK) == CheckBytecode::REG_MASK) {
-         const int num = c.value & 0xff;
-         if (match.find(num) == match.end())
-            match[num] = *p;
-         else {
-            EXPECT_EQ(match[num], *p) << "placeholder _" << num
-                                      << " mismatch at offset"
-                                      << (p - b->bytes());
-            if (match[num] != *p)
-               return;
-         }
-         ++p;
-      }
-      else {
-         FAIL() << "unexpected bytecode check" << c.value;
-         return;
-      }
-   }
-
-   EXPECT_EQ(b->length(), p - b->bytes()) << "did not match all bytecodes"
-                                          << std::endl << std::endl << *b;
-}
-
-void check_bytecodes(const Bytecode *b,
-                     const std::vector<CheckBytecode>&& expect)
+static void check_bytecodes(const Bytecode *b,
+                            const std::vector<CheckBytecode>&& expect)
 {
    const uint8_t *p = b->bytes();
    std::map<int, int> match;
@@ -215,16 +127,17 @@ void check_bytecodes(const Bytecode *b,
    }
 }
 
-TEST_F(BytecodeTest, compile_add1) {
-   vcode_unit_t unit = emit_function(ident_new("add1"), context_, i32_type_);
+START_TEST(test_compile_add1)
+{
+   vcode_unit_t unit = emit_function(ident_new("add1"), context, i32_type);
 
-   vcode_reg_t p0 = emit_param(i32_type_, i32_type_, ident_new("x"));
-   emit_return(emit_add(p0, emit_const(i32_type_, 1)));
+   vcode_reg_t p0 = emit_param(i32_type, i32_type, ident_new("x"));
+   emit_return(emit_add(p0, emit_const(i32_type, 1)));
 
    vcode_opt();
 
    Bytecode *b = compile(InterpMachine::get(), unit);
-   ASSERT_NE(nullptr, b);
+   fail_if(nullptr == b);
 
    check_bytecodes(b, {
          Bytecode::ADDB, 0, 0x01,
@@ -233,19 +146,20 @@ TEST_F(BytecodeTest, compile_add1) {
 
    vcode_unit_unref(unit);
 }
+END_TEST
 
-TEST_F(BytecodeTest, select) {
-   vcode_unit_t unit = emit_function(ident_new("max"), context_, i32_type_);
+START_TEST(test_select) {
+   vcode_unit_t unit = emit_function(ident_new("max"), context, i32_type);
 
-   vcode_reg_t p0 = emit_param(i32_type_, i32_type_, ident_new("x"));
-   vcode_reg_t p1 = emit_param(i32_type_, i32_type_, ident_new("y"));
+   vcode_reg_t p0 = emit_param(i32_type, i32_type, ident_new("x"));
+   vcode_reg_t p1 = emit_param(i32_type, i32_type, ident_new("y"));
    vcode_reg_t cmp = emit_cmp(VCODE_CMP_GT, p0, p1);
    emit_return(emit_select(cmp, p0, p1));
 
    vcode_opt();
 
    Bytecode *b = compile(InterpMachine::get(), unit);
-   ASSERT_NE(nullptr, b);
+   fail_if(nullptr == b);
 
    check_bytecodes(b, {
          Bytecode::CMP, _1, _2,
@@ -258,8 +172,11 @@ TEST_F(BytecodeTest, select) {
 
    vcode_unit_unref(unit);
 }
+END_TEST
 
-TEST_F(BytecodeTest, patch) {
+START_TEST(test_patch)
+{
+   Bytecode::Assembler _asm(InterpMachine::get());
    Bytecode::Label L1;
 
    __ bind(L1);
@@ -280,17 +197,19 @@ TEST_F(BytecodeTest, patch) {
          Bytecode::CBNZ, 0, 0xf4, 0xff,
       });
 }
+END_TEST
 
-TEST_F(BytecodeTest, compile_fact) {
+START_TEST(test_compile_fact)
+{
    vcode_unit_t unit = vcode_find_unit(ident_new("GTEST.FUNCTIONS.FACT(I)I"));
-   ASSERT_NE(nullptr, unit);
+   fail_if(nullptr == unit);
 
    vcode_select_unit(unit);
 
    Bytecode *b = compile(InterpMachine::get(), unit);
-   ASSERT_NE(nullptr, b);
+   fail_if(nullptr == b);
 
-   EXPECT_EQ(32, b->frame_size());
+   fail_unless(32 == b->frame_size());
 
    check_bytecodes(b, {
          Bytecode::MOVB, _, 1,
@@ -317,25 +236,29 @@ TEST_F(BytecodeTest, compile_fact) {
          Bytecode::JMP, _, _
       });
 }
+END_TEST
 
-TEST_F(BytecodeTest, compile_sum) {
+START_TEST(test_compile_sum)
+{
    vcode_unit_t unit = vcode_find_unit(
       ident_new("GTEST.FUNCTIONS.SUM(25GTEST.FUNCTIONS.INT_ARRAY)I"));
-   ASSERT_NE(nullptr, unit);
+   fail_if(nullptr == unit);
 
    Bytecode *b = compile(InterpMachine::get(), unit);
-   ASSERT_NE(nullptr, b);
+   fail_if(nullptr == b);
 
    vcode_dump();
    b->dump();
 }
+END_TEST
 
-TEST_F(BytecodeTest, add_sub_reuse) {
+START_TEST(test_add_sub_reuse)
+{
    vcode_unit_t unit = emit_function(ident_new("add_sub_reuse"),
-                                     context_, i32_type_);
+                                     context, i32_type);
 
-   vcode_reg_t p0 = emit_param(i32_type_, i32_type_, ident_new("x"));
-   vcode_reg_t p1 = emit_param(i32_type_, i32_type_, ident_new("x"));
+   vcode_reg_t p0 = emit_param(i32_type, i32_type, ident_new("x"));
+   vcode_reg_t p1 = emit_param(i32_type, i32_type, ident_new("x"));
 
    vcode_reg_t t0 = emit_add(p0, p1);
    vcode_reg_t t1 = emit_sub(t0, p1);
@@ -345,7 +268,7 @@ TEST_F(BytecodeTest, add_sub_reuse) {
    vcode_opt();
 
    Bytecode *b = compile(InterpMachine::get(), unit);
-   ASSERT_NE(nullptr, b);
+   fail_if(nullptr == b);
 
    check_bytecodes(b, {
          Bytecode::MOV, _1, 0,
@@ -358,13 +281,15 @@ TEST_F(BytecodeTest, add_sub_reuse) {
 
    vcode_unit_unref(unit);
 }
+END_TEST
 
-TEST_F(BytecodeTest, unwrap) {
-   vcode_type_t pi32_type = vtype_pointer(i32_type_);
+START_TEST(test_unwrap)
+{
+   vcode_type_t pi32_type = vtype_pointer(i32_type);
    vcode_unit_t unit = emit_function(ident_new("unwrap"),
-                                     context_, pi32_type);
+                                     context, pi32_type);
 
-   vcode_type_t ui32_type = vtype_uarray(1, i32_type_, i32_type_);
+   vcode_type_t ui32_type = vtype_uarray(1, i32_type, i32_type);
    vcode_reg_t p0 = emit_param(ui32_type, ui32_type, ident_new("p0"));
 
    emit_return(emit_unwrap(p0));
@@ -372,7 +297,7 @@ TEST_F(BytecodeTest, unwrap) {
    vcode_opt();
 
    Bytecode *b = compile(InterpMachine::get(), unit);
-   ASSERT_NE(nullptr, b);
+   fail_if(nullptr == b);
 
    check_bytecodes(b, {
          Bytecode::LDR, 0, InterpMachine::SP_REG, 0, 0,
@@ -381,20 +306,22 @@ TEST_F(BytecodeTest, unwrap) {
 
    vcode_unit_unref(unit);
 }
+END_TEST
 
-TEST_F(BytecodeTest, uarray_dir) {
+START_TEST(test_uarray_dir)
+{
    vcode_unit_t unit = emit_function(ident_new("uarray_dir"),
-                                     context_, i32_type_);
+                                     context, i32_type);
 
-   vcode_type_t ui32_type = vtype_uarray(1, i32_type_, i32_type_);
+   vcode_type_t ui32_type = vtype_uarray(1, i32_type, i32_type);
    vcode_reg_t p0 = emit_param(ui32_type, ui32_type, ident_new("p0"));
 
-   emit_return(emit_cast(i32_type_, i32_type_, emit_uarray_dir(p0, 0)));
+   emit_return(emit_cast(i32_type, i32_type, emit_uarray_dir(p0, 0)));
 
    vcode_opt();
 
    Bytecode *b = compile(InterpMachine::get(), unit);
-   ASSERT_NE(nullptr, b);
+   fail_if(nullptr == b);
 
    check_bytecodes(b, {
          Bytecode::LDR, 0, InterpMachine::SP_REG, 4, 0,
@@ -403,6 +330,7 @@ TEST_F(BytecodeTest, uarray_dir) {
 
    vcode_unit_unref(unit);
 }
+END_TEST
 
 START_TEST(test_uarray_dir_highdim)
 {
@@ -417,7 +345,7 @@ START_TEST(test_uarray_dir_highdim)
    vcode_opt();
 
    Bytecode *b = compile(InterpMachine::get(), unit);
-   ASSERT_NE(nullptr, b);
+   fail_if(nullptr == b);
 
    check_bytecodes(b, {
          Bytecode::LDR, 0, InterpMachine::SP_REG, 4, 0,
@@ -444,7 +372,7 @@ START_TEST(test_uarray_left_right)
    vcode_opt();
 
    Bytecode *b = compile(InterpMachine::get(), unit);
-   ASSERT_NE(nullptr, b);
+   fail_if(nullptr == b);
 
    check_bytecodes(b, {
          Bytecode::LDR, _, InterpMachine::SP_REG, 8, 0,
@@ -462,16 +390,19 @@ extern "C" Suite *get_bytecode_tests(void)
    Suite *s = suite_create("bytecode");
 
    TCase *tc = nvc_unit_test();
+   tcase_add_unchecked_fixture(tc, global_setup, global_teardown);
    tcase_add_checked_fixture(tc, setup, teardown);
+   tcase_add_test(tc, test_compile_add1);
+   tcase_add_test(tc, test_patch);
+   tcase_add_test(tc, test_compile_sum);
+   tcase_add_test(tc, test_compile_fact);
+   tcase_add_test(tc, test_select);
+   tcase_add_test(tc, test_unwrap);
+   tcase_add_test(tc, test_uarray_dir);
    tcase_add_test(tc, test_uarray_dir_highdim);
    tcase_add_test(tc, test_uarray_left_right);
+   tcase_add_test(tc, test_add_sub_reuse);
    suite_add_tcase(s, tc);
 
    return s;
-}
-
-extern "C" int run_gtests(int argc, char **argv)
-{
-   InitGoogleTest(&argc, argv);
-   return RUN_ALL_TESTS();
 }

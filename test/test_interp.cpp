@@ -2,40 +2,33 @@
 #include "interp.hpp"
 #include "vcode.h"
 #include "phase.h"
+#include "test_util.h"
 
-#include <gtest/gtest.h>
+#define __ _asm.
 
-#define __ asm_.
+START_TEST(test_add1)
+{
+   Bytecode::Assembler _asm(InterpMachine::get());
+   Interpreter interp;
 
-using namespace testing;
-
-class InterpTest : public ::testing::Test {
-protected:
-   InterpTest()
-      : asm_(InterpMachine::get())
-   {}
-
-   virtual void SetUp() {}
-   virtual void TearDown() {}
-
-   Bytecode::Assembler asm_;
-   Interpreter         interp_;
-};
-
-TEST_F(InterpTest, add1) {
    __ add(Bytecode::R(0), 1);
    __ ret();
 
    Bytecode *b = __ finish();
 
-   interp_.set_reg(0, 5);
-   EXPECT_EQ(6, interp_.run(b));
+   interp.set_reg(0, 5);
+   fail_unless(6 == interp.run(b));
 
-   interp_.set_reg(0, 42);
-   EXPECT_EQ(43, interp_.run(b));
+   interp.set_reg(0, 42);
+   fail_unless(43 == interp.run(b));
 }
+END_TEST
 
-TEST_F(InterpTest, fact) {
+START_TEST(test_fact)
+{
+   Bytecode::Assembler _asm(InterpMachine::get());
+   Interpreter interp;
+
    Bytecode::Register Rn = Bytecode::R(0);
    Bytecode::Register Rtmp1 = Bytecode::R(1);
    Bytecode::Register Rtmp2 = Bytecode::R(8);
@@ -67,12 +60,25 @@ TEST_F(InterpTest, fact) {
 
    Bytecode *b = __ finish();
 
-   interp_.set_reg(0, 1);
-   EXPECT_EQ(1, interp_.run(b));
+   interp.set_reg(0, 1);
+   fail_unless(1 == interp.run(b));
 
-   interp_.set_reg(0, 5);
-   EXPECT_EQ(120, interp_.run(b));
+   interp.set_reg(0, 5);
+   fail_unless(120 == interp.run(b));
 
-   interp_.set_reg(0, 10);
-   EXPECT_EQ(3628800, interp_.run(b));
+   interp.set_reg(0, 10);
+   fail_unless(3628800 == interp.run(b));
+}
+END_TEST
+
+extern "C" Suite *get_interp_tests(void)
+{
+   Suite *s = suite_create("interp");
+
+   TCase *tc = nvc_unit_test();
+   tcase_add_test(tc, test_fact);
+   tcase_add_test(tc, test_add1);
+   suite_add_tcase(s, tc);
+
+   return s;
 }

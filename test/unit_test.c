@@ -73,9 +73,7 @@ int main(int argc, char **argv)
    nfail += RUN_TESTS(group);
    nfail += RUN_TESTS(elab);
    nfail += RUN_TESTS(bytecode);
-
-   extern int run_gtests(int argc, char **argv);
-   nfail += run_gtests(argc, argv);
+   nfail += RUN_TESTS(interp);
 
    return nfail == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
