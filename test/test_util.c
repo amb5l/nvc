@@ -10,6 +10,7 @@
 static const nvc_error_t *error_lines   = NULL;
 static error_fn_t         orig_error_fn = NULL;
 static lib_t              test_lib      = NULL;
+static lib_t              bytecode_lib  = NULL;
 
 static void test_error_fn(const char *msg, const loc_t *loc)
 {
@@ -124,4 +125,42 @@ tree_t _parse_and_check(const tree_kind_t *array, int num,
    fail_unless(parse_errors() == 0);
 
    return last;
+}
+
+static void bytecode_global_setup()
+{
+   bytecode_lib = lib_tmp("bc");
+   lib_set_work(bytecode_lib);
+
+   input_from_file(TESTDIR "/bytecode/functions.vhd");
+
+   tree_t pack = parse();
+   fail_if(NULL == pack);
+   fail_unless(T_PACKAGE, tree_kind(pack));
+   fail_unless(sem_check(pack));
+
+   tree_t body = parse();
+   fail_if(NULL == body);
+   fail_unless(T_PACK_BODY, tree_kind(body));
+   fail_unless(sem_check(body));
+
+   simplify(body, (eval_flags_t)0);
+   lower_unit(body);
+
+   fail_unless(NULL == parse());
+   fail_unless(0 == parse_errors());
+   fail_unless(0 == sem_errors());
+}
+
+static void bytecode_global_teardown()
+{
+   lib_set_work(NULL);
+   lib_free(bytecode_lib);
+   bytecode_lib = NULL;
+}
+
+void nvc_add_bytecode_fixture(TCase *tc)
+{
+   tcase_add_unchecked_fixture(tc, bytecode_global_setup,
+                               bytecode_global_teardown);
 }

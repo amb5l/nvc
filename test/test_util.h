@@ -34,6 +34,7 @@ int nvc_run_test(Suite *s);
 tree_t run_elab(void);
 tree_t _parse_and_check(const tree_kind_t *array, int num,
                         bool simp, bool lower);
+void nvc_add_bytecode_fixture(TCase *tc);
 
 END_C_HEADER
 

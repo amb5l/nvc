@@ -18,6 +18,28 @@
 #include "interp.hpp"
 
 #include <cassert>
+#include <cstring>
+
+Interpreter::Interpreter()
+{
+   reset();
+}
+
+void Interpreter::reset()
+{
+   DEBUG_ONLY(memset(mem_, 0xde, sizeof(mem_));)
+   DEBUG_ONLY(memset(regs_, 0xad, sizeof(regs_));)
+
+   // Stack is at bottom of memory and grows downwards
+   regs_[InterpMachine::SP_REG] = STACK_SIZE;
+}
+
+void Interpreter::push(uint32_t word)
+{
+   regs_[InterpMachine::SP_REG] -= InterpMachine::WORD_SIZE;
+   assert(regs_[InterpMachine::SP_REG] >= 0);
+   mem_access(InterpMachine::SP_REG, 0, InterpMachine::WORD_SIZE) = word;
+}
 
 static inline uint8_t interp_cmp(Interpreter::reg_t lhs, Interpreter::reg_t rhs)
 {
@@ -37,6 +59,17 @@ static inline uint8_t interp_cmp(Interpreter::reg_t lhs, Interpreter::reg_t rhs)
    return flags;
 }
 
+static inline uint8_t interp_test(Interpreter::reg_t lhs,
+                                  Interpreter::reg_t rhs)
+{
+   uint8_t flags = 0;
+   if (lhs & rhs)
+      flags |= Bytecode::NZ;
+   else
+      flags |= Bytecode::Z;
+   return flags;
+}
+
 inline Bytecode::OpCode Interpreter::opcode()
 {
    return (Bytecode::OpCode)bytes_[bci_++];
@@ -44,7 +77,9 @@ inline Bytecode::OpCode Interpreter::opcode()
 
 inline uint8_t Interpreter::reg()
 {
-   return bytes_[bci_++];
+   reg_t r = bytes_[bci_++];
+   assert(r < InterpMachine::NUM_REGS);
+   return r;
 }
 
 inline int8_t Interpreter::imm8()
@@ -59,13 +94,22 @@ inline int16_t Interpreter::imm16()
     return res;
 }
 
+inline uint32_t& Interpreter::mem_access(int reg, int offset, int size)
+{
+   const int base = regs_[reg] + offset;
+   assert(offset >= 0);
+   assert(offset + size <= MEM_SIZE);
+   assert(base % InterpMachine::WORD_SIZE == 0);
+   return mem_[base / InterpMachine::WORD_SIZE];
+}
+
 Interpreter::reg_t Interpreter::run(const Bytecode *code)
 {
    bytecode_ = code;
    bytes_ = code->bytes();
    bci_ = 0;
 
-   int32_t stack[1024];  // XXX
+   assert(regs_[InterpMachine::SP_REG] - code->frame_size() >= 0);
 
    int32_t a, b, c;
    for (;;) {
@@ -74,6 +118,18 @@ Interpreter::reg_t Interpreter::run(const Bytecode *code)
          a = reg();
          b = imm8();
          regs_[a] += b;
+         break;
+
+      case Bytecode::ADD:
+         a = reg();
+         b = reg();
+         regs_[a] += regs_[b];
+         break;
+
+      case Bytecode::SUB:
+         a = reg();
+         b = reg();
+         regs_[a] -= regs_[b];
          break;
 
       case Bytecode::RET:
@@ -92,17 +148,17 @@ Interpreter::reg_t Interpreter::run(const Bytecode *code)
          break;
 
       case Bytecode::STR:
-         (void)imm8(); // TODO
+         a = reg();
          b = imm16();
          c = reg();
-         stack[b] = regs_[c];
+         mem_access(a, b, InterpMachine::WORD_SIZE) = regs_[c];
          break;
 
       case Bytecode::LDR:
          a = reg();
-         (void)imm8(); // TODO
+         b = reg();
          c = imm16();
-         regs_[a] = stack[c];
+         regs_[a] = mem_access(b, c, InterpMachine::WORD_SIZE);
          break;
 
       case Bytecode::CMP:
@@ -115,6 +171,12 @@ Interpreter::reg_t Interpreter::run(const Bytecode *code)
          a = reg();
          b = imm8();
          regs_[a] = !!(flags_ & b);
+         break;
+
+      case Bytecode::TESTB:
+         a = reg();
+         b = imm8();
+         flags_ = interp_test(regs_[a], b);
          break;
 
       case Bytecode::JMP:

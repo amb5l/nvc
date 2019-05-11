@@ -71,13 +71,33 @@ START_TEST(test_fact)
 }
 END_TEST
 
+START_TEST(test_uarray_len)
+{
+   vcode_unit_t unit = vcode_find_unit(
+      ident_new("BC.FUNCTIONS.LEN(22BC.FUNCTIONS.INT_ARRAY)I"));
+   fail_if(unit == nullptr);
+
+   Interpreter interp;
+   Bytecode *b = compile(InterpMachine::get(), unit);
+
+   interp.push(10);        // Right
+   interp.push(2);         // Left
+   interp.push(RANGE_TO);  // Direction
+   interp.push(0);         // Data pointer
+
+   ck_assert_int_eq(9, interp.run(b));
+}
+END_TEST
+
 extern "C" Suite *get_interp_tests(void)
 {
    Suite *s = suite_create("interp");
 
    TCase *tc = nvc_unit_test();
+   nvc_add_bytecode_fixture(tc);
    tcase_add_test(tc, test_fact);
    tcase_add_test(tc, test_add1);
+   tcase_add_test(tc, test_uarray_len);
    suite_add_tcase(s, tc);
 
    return s;

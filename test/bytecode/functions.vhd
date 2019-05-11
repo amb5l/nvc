@@ -14,6 +14,11 @@ package body functions is
 
     type int_array is array (natural range <>) of integer;
 
+    function len(arr : int_array) return integer is
+    begin
+        return arr'high - arr'low + 1;
+    end function;
+
     function sum(arr : int_array) return integer is
         variable result : integer := 0;
     begin

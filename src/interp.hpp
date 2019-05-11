@@ -22,18 +22,30 @@
 
 class Interpreter {
 public:
+   Interpreter();
 
    typedef int32_t reg_t;
 
    reg_t run(const Bytecode *code);
    reg_t get_reg(unsigned num) const;
    void set_reg(unsigned num, reg_t value);
+   void push(uint32_t word);
+   void reset();
 
 private:
+   Interpreter(const Interpreter&) = delete;
+   Interpreter(Interpreter&&) = delete;
+
    inline Bytecode::OpCode opcode();
    inline uint8_t reg();
    inline int8_t imm8();
    inline int16_t imm16();
+   inline uint32_t& mem_access(int reg, int offset, int size);
+
+   static const int STACK_SIZE = 256;
+   static const int MEM_SIZE   = 1024;
+
+   static_assert(STACK_SIZE < MEM_SIZE, "stack must be smaller than memory");
 
    /*class Frame {
       const Bytecode *bytecode;
@@ -45,4 +57,5 @@ private:
    const uint8_t  *bytes_ = nullptr;
    reg_t           regs_[InterpMachine::NUM_REGS];
    uint8_t         flags_ = 0;
+   uint32_t        mem_[MEM_SIZE / InterpMachine::WORD_SIZE];
 };

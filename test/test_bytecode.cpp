@@ -26,7 +26,6 @@ static const CheckBytecode _4(CheckBytecode::REG_MASK | 4);
 
 static vcode_unit_t context = nullptr;
 static vcode_type_t i32_type = VCODE_INVALID_TYPE;
-static lib_t work = nullptr;
 
 static void setup()
 {
@@ -39,38 +38,6 @@ static void teardown()
    vcode_unit_unref(context);
    context = nullptr;
    i32_type = VCODE_INVALID_TYPE;
-}
-
-static void global_setup()
-{
-   work = lib_tmp("gtest");
-   lib_set_work(work);
-
-   input_from_file(TESTDIR "/bytecode/functions.vhd");
-
-   tree_t pack = parse();
-   fail_if(nullptr == pack);
-   fail_unless(T_PACKAGE, tree_kind(pack));
-   fail_unless(sem_check(pack));
-
-   tree_t body = parse();
-   fail_if(nullptr == body);
-   fail_unless(T_PACK_BODY, tree_kind(body));
-   fail_unless(sem_check(body));
-
-   simplify(body, (eval_flags_t)0);
-   lower_unit(body);
-
-   fail_unless(nullptr == parse());
-   fail_unless(0 == parse_errors());
-   fail_unless(0 == sem_errors());
-}
-
-static void global_teardown()
-{
-   lib_set_work(nullptr);
-   lib_free(work);
-   work = nullptr;
 }
 
 static void check_bytecodes(const Bytecode *b,
@@ -201,7 +168,7 @@ END_TEST
 
 START_TEST(test_compile_fact)
 {
-   vcode_unit_t unit = vcode_find_unit(ident_new("GTEST.FUNCTIONS.FACT(I)I"));
+   vcode_unit_t unit = vcode_find_unit(ident_new("BC.FUNCTIONS.FACT(I)I"));
    fail_if(nullptr == unit);
 
    vcode_select_unit(unit);
@@ -241,7 +208,7 @@ END_TEST
 START_TEST(test_compile_sum)
 {
    vcode_unit_t unit = vcode_find_unit(
-      ident_new("GTEST.FUNCTIONS.SUM(25GTEST.FUNCTIONS.INT_ARRAY)I"));
+      ident_new("BC.FUNCTIONS.SUM(22BC.FUNCTIONS.INT_ARRAY)I"));
    fail_if(nullptr == unit);
 
    Bytecode *b = compile(InterpMachine::get(), unit);
@@ -273,7 +240,7 @@ START_TEST(test_add_sub_reuse)
    check_bytecodes(b, {
          Bytecode::MOV, _1, 0,
          Bytecode::ADD, _1, 1,
-         Bytecode::ADD, _1, 1,
+         Bytecode::SUB, _1, 1,
          Bytecode::ADD, _1, 0,
          Bytecode::MOV, 0, _1,
          Bytecode::RET
@@ -428,7 +395,7 @@ extern "C" Suite *get_bytecode_tests(void)
    Suite *s = suite_create("bytecode");
 
    TCase *tc = nvc_unit_test();
-   tcase_add_unchecked_fixture(tc, global_setup, global_teardown);
+   nvc_add_bytecode_fixture(tc);
    tcase_add_checked_fixture(tc, setup, teardown);
    tcase_add_test(tc, test_compile_add1);
    tcase_add_test(tc, test_patch);

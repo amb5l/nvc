@@ -773,7 +773,7 @@ void Compiler::compile_sub()
    Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)), tmp);
 
    __ mov(dst, lhs);
-   __ add(dst, rhs);
+   __ sub(dst, rhs);
 }
 
 void Compiler::compile_add()
