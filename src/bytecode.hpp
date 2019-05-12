@@ -179,6 +179,8 @@ public:
 #endif
    };
 
+   ~Bytecode();
+
    const uint8_t *bytes() const { return bytes_; }
    size_t length() const { return len_; }
    const Machine& machine() const { return machine_; }
@@ -196,7 +198,6 @@ private:
                      unsigned frame_size);
    Bytecode(const Bytecode&) = delete;
    Bytecode(const Bytecode&&) = delete;
-   ~Bytecode();
 
 #if DEBUG
    void move_comments(std::map<int, char*>&& comments);

@@ -112,6 +112,7 @@ START_TEST(test_compile_add1)
       });
 
    vcode_unit_unref(unit);
+   delete b;
 }
 END_TEST
 
@@ -138,6 +139,7 @@ START_TEST(test_select) {
       });
 
    vcode_unit_unref(unit);
+   delete b;
 }
 END_TEST
 
@@ -163,6 +165,8 @@ START_TEST(test_patch)
          Bytecode::JMPC, Bytecode::LT, 0x02, 0x00,
          Bytecode::JMPC, Bytecode::GT, 0xf4, 0xff,
       });
+
+   delete b;
 }
 END_TEST
 
@@ -202,6 +206,8 @@ START_TEST(test_compile_fact)
          Bytecode::JMPC, Bytecode::Z, _, _,
          Bytecode::JMP, _, _
       });
+
+   delete b;
 }
 END_TEST
 
@@ -233,6 +239,7 @@ START_TEST(test_add_sub_reuse)
       });
 
    vcode_unit_unref(unit);
+   delete b;
 }
 END_TEST
 
@@ -258,6 +265,7 @@ START_TEST(test_unwrap)
       });
 
    vcode_unit_unref(unit);
+   delete b;
 }
 END_TEST
 
@@ -282,6 +290,7 @@ START_TEST(test_uarray_dir)
       });
 
    vcode_unit_unref(unit);
+   delete b;
 }
 END_TEST
 
@@ -308,6 +317,7 @@ START_TEST(test_uarray_dir_highdim)
       });
 
    vcode_unit_unref(unit);
+   delete b;
 }
 END_TEST
 
@@ -336,6 +346,7 @@ START_TEST(test_uarray_left_right)
       });
 
    vcode_unit_unref(unit);
+   delete b;
 }
 END_TEST
 
@@ -373,6 +384,7 @@ START_TEST(test_range_null)
       });
 
    vcode_unit_unref(unit);
+   delete b;
 }
 END_TEST
 
@@ -401,6 +413,7 @@ START_TEST(test_uarray_deref)
       });
 
    vcode_unit_unref(unit);
+   delete b;
 }
 END_TEST
 
@@ -432,6 +445,7 @@ START_TEST(test_uarray_deref2)
       });
 
    vcode_unit_unref(unit);
+   delete b;
 }
 END_TEST
 

@@ -282,7 +282,7 @@ int BufferPrinter::vprint(const char *fmt, va_list ap)
 void BufferPrinter::grow(size_t nchars)
 {
    const size_t offset = wptr_ - buffer_;
-   const size_t nlen = MAX(offset + nchars, len_ * 2);
+   const size_t nlen = MAX(offset + nchars, len_ * 3);
 
    buffer_ = (char *)xrealloc(buffer_, nlen);
    len_ = nlen;

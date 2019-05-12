@@ -487,8 +487,14 @@ void lib_free(lib_t lib)
    if (lib->lock_fd != -1)
       close(lib->lock_fd);
 
+   while (lib->index != NULL) {
+      lib_index_t *tmp = lib->index->next;
+      free(lib->index);
+      lib->index = tmp;
+   }
+
    for (lib_list_t *it = loaded, *prev = NULL;
-        it != NULL; loaded = it, it = it->next) {
+        it != NULL; prev = it, it = it->next) {
 
       if (it->item == lib) {
          if (prev)
