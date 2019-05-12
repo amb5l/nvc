@@ -679,13 +679,18 @@ void Compiler::compile_load_indirect()
 
 void Compiler::compile_addi(int op)
 {
-   Mapping& tmp = map_vcode_reg(vcode_get_arg(op_, 0));
+   vcode_type_t result_type = vcode_reg_type(vcode_get_result(op_));
 
-   Bytecode::Register src = in_reg(tmp);
-   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)), tmp);
+   Bytecode::Register src = in_reg(map_vcode_reg(vcode_get_arg(op_, 0)));
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)), src);
 
    __ mov(dst, src);
-   __ add(dst, vcode_get_value(op));
+
+   int64_t value = vcode_get_value(op);
+   if (vtype_kind(result_type) == VCODE_TYPE_POINTER)
+      value *= size_of(result_type);
+
+   __ add(dst, value);
 }
 
 void Compiler::compile_return(int op)
@@ -781,14 +786,23 @@ void Compiler::compile_sub()
 
 void Compiler::compile_add()
 {
-   Mapping& tmp = map_vcode_reg(vcode_get_arg(op_, 0));
+   vcode_reg_t result_reg = vcode_get_result(op_);
+   vcode_type_t result_type = vcode_reg_type(result_reg);
 
-   Bytecode::Register lhs = in_reg(tmp);
+   Bytecode::Register lhs = in_reg(map_vcode_reg(vcode_get_arg(op_, 0)));
    Bytecode::Register rhs = in_reg(map_vcode_reg(vcode_get_arg(op_, 1)));
-   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)), tmp);
 
-   __ mov(dst, lhs);
-   __ add(dst, rhs);
+   if (vtype_kind(result_type) == VCODE_TYPE_POINTER) {
+      Bytecode::Register dst = in_reg(map_vcode_reg(result_reg), rhs);
+      __ mov(dst, rhs);
+      __ mul(dst, size_of(result_type));
+      __ add(dst, lhs);
+   }
+   else {
+      Bytecode::Register dst = in_reg(map_vcode_reg(result_reg), lhs);
+      __ mov(dst, lhs);
+      __ add(dst, rhs);
+   }
 }
 
 void Compiler::compile_select(int op)

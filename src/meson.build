@@ -18,7 +18,6 @@ lib_src = files(
   'nvc.c',
   'object.c',
   'parse.c',
-  'printer.cpp',
   'rt/alloc.c',
   'rt/cover.c',
   'rt/fst.c',
@@ -38,6 +37,7 @@ lib_src = files(
   'util.c',
   'util/bitmask.cpp',
   'util/crashdump.cpp',
+  'util/printer.cpp',
   'vcode.c',
 )
 

@@ -177,6 +177,16 @@ void Dumper::diassemble_one()
       reg();
       immed8();
       break;
+   case Bytecode::MULW:
+      opcode("MULW");
+      reg();
+      immed32();
+      break;
+   case Bytecode::MULB:
+      opcode("MULB");
+      reg();
+      immed8();
+      break;
    case Bytecode::ANDB:
       opcode("ANDB");
       reg();
@@ -505,6 +515,23 @@ void Bytecode::Assembler::mul(Register dst, Register rhs)
    emit_u8(Bytecode::MUL);
    emit_reg(dst);
    emit_reg(rhs);
+}
+
+void Bytecode::Assembler::mul(Register dst, int64_t value)
+{
+   // TODO: shift if power of 2
+   if (is_int8(value)) {
+      emit_u8(Bytecode::MULB);
+      emit_reg(dst);
+      emit_u8(value);
+   }
+   else if (is_int32(value)) {
+      emit_u8(Bytecode::MULW);
+      emit_reg(dst);
+      emit_i32(value);
+   }
+   else
+      should_not_reach_here("64-bit immediate");
 }
 
 void Bytecode::Assembler::emit_reg(Register reg)

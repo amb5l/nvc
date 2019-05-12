@@ -2,6 +2,7 @@ test_src = files(
   'test_bitmask.cpp',
   'test_bounds.c',
   'test_bytecode.cpp',
+  'test_elab.c',
   'test_group.c',
   'test_hash.c',
   'test_heap.c',
@@ -10,11 +11,11 @@ test_src = files(
   'test_lib.c',
   'test_lower.c',
   'test_parse.c',
+  'test_printer.cpp',
   'test_sem.c',
   'test_simp.c',
   'test_util.c',
   'test_value.c',
   'unit_test.c',
-  'test_elab.c',
 )
 

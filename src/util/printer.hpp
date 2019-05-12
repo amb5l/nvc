@@ -21,7 +21,8 @@
 
 #include <cstdio>
 
-struct Printer {
+class Printer {
+public:
    virtual ~Printer() {}
 
    __attribute__((format(printf, 2, 3)))
@@ -30,26 +31,45 @@ struct Printer {
    __attribute__((format(printf, 2, 3)))
    virtual int color_print(const char *fmt, ...);
 
-   virtual int color_print(const char *fmt, va_list ap);
+   virtual int color_vprint(const char *fmt, va_list ap);
+   virtual int vprint(const char *fmt, va_list ap) = 0;
+   virtual void flush() {}
+   virtual void copy(const char *str);
+   virtual void copy(char ch);
 
-   virtual int print(const char *fmt, va_list ap) = 0;
+protected:
+   static void filter_color(const char *str, Printer& out, bool want_color);
+   static bool has_color_escape(const char *str);
 };
 
 class FilePrinter : public Printer {
 public:
-   FilePrinter(FILE *f) : file_(f) {}
+   explicit FilePrinter(FILE *f) : file_(f) {}
 
-   int print(const char *fmt, va_list ap) override;
+   int vprint(const char *fmt, va_list ap) override;
+   void flush() override;
+   void copy(const char *str) override;
+   void copy(char ch) override;
 
 private:
    FILE *file_;
 };
 
-class StdoutPrinter : public FilePrinter {
+class TerminalPrinter : public FilePrinter {
 public:
-   StdoutPrinter();
+   explicit TerminalPrinter(FILE *f, bool force_color=false);
 
-   int color_print(const char *fmt, va_list ap) override;
+   int color_vprint(const char *fmt, va_list ap) override;
+
+private:
+   static bool detect_terminal(int fno);
+
+   bool want_color_;
+};
+
+class StdoutPrinter : public TerminalPrinter {
+public:
+   StdoutPrinter() : TerminalPrinter(stdout) {}
 };
 
 class BufferPrinter : public Printer {
@@ -58,11 +78,17 @@ public:
    ~BufferPrinter();
    BufferPrinter(const BufferPrinter&) = delete;
 
-   int print(const char *fmt, va_list ap) override;
+   int vprint(const char *fmt, va_list ap) override;
+   void copy(const char *str) override;
+   void copy(char ch) override;
+
    const char *buffer() const { return buffer_; }
+   void clear();
 
 private:
    static const int DEFAULT_BUFFER = 256;
+
+   void grow(size_t nchars);
 
    char *buffer_;
    char *wptr_;

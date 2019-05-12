@@ -63,6 +63,7 @@ int main(int argc, char **argv)
    nfail += RUN_TESTS(hash);
    nfail += RUN_TESTS(heap);
    nfail += RUN_TESTS(bitmask);
+   nfail += RUN_TESTS(printer);
    nfail += RUN_TESTS(lib);
    nfail += RUN_TESTS(parse);
    nfail += RUN_TESTS(sem);

@@ -55,7 +55,7 @@ static void check_bytecodes(const Bytecode *b,
          // Directly compare the bytecode
          if (c.value != *p) {
             BufferPrinter printer;
-            b->dump(printer);
+            b->dump(printer, p - b->bytes());
             fail("bytecode mismatch at offset %d\n\n%s",
                  p - b->bytes(), printer.buffer());
          }
@@ -385,7 +385,8 @@ START_TEST(test_uarray_deref)
    vcode_reg_t p0 = emit_param(ui32_type, ui32_type, ident_new("p0"));
 
    vcode_reg_t data = emit_unwrap(p0);
-   emit_return(emit_load_indirect(data));
+   vcode_reg_t elem1 = emit_add(data, emit_const(vtype_offset(), 1));
+   emit_return(emit_load_indirect(elem1));
 
    vcode_opt();
 
@@ -393,9 +394,40 @@ START_TEST(test_uarray_deref)
    fail_if(nullptr == b);
 
    check_bytecodes(b, {
-         Bytecode::LDR, _, InterpMachine::SP_REG, 8, 0,
-         Bytecode::LDR, _, InterpMachine::SP_REG, 12, 0,
-         Bytecode::ADD, 0, _,
+         Bytecode::LDR, 0, InterpMachine::SP_REG, 0, 0,
+         Bytecode::ADDB, 0, 4,
+         Bytecode::LDR, 0, 0, 0, 0,
+         Bytecode::RET
+      });
+
+   vcode_unit_unref(unit);
+}
+END_TEST
+
+START_TEST(test_uarray_deref2)
+{
+   vcode_unit_t unit = emit_function(ident_new("uarray_deref"),
+                                     context, i32_type);
+
+   vcode_type_t ui32_type = vtype_uarray(1, i32_type, i32_type);
+   vcode_reg_t p0 = emit_param(ui32_type, ui32_type, ident_new("p0"));
+   vcode_reg_t p1 = emit_param(i32_type, i32_type, ident_new("p1"));
+
+   vcode_type_t offset = vtype_offset();
+   vcode_reg_t data = emit_unwrap(p0);
+   vcode_reg_t elem1 = emit_add(data, emit_cast(offset, offset, p1));
+   emit_return(emit_load_indirect(elem1));
+
+   vcode_opt();
+
+   Bytecode *b = compile(InterpMachine::get(), unit);
+   fail_if(nullptr == b);
+
+   check_bytecodes(b, {
+         Bytecode::LDR, 0, InterpMachine::SP_REG, 0, 0,
+         Bytecode::MULB, 1, 4,
+         Bytecode::ADD, 1, 0,
+         Bytecode::LDR, 1, 1, 0, 0,
          Bytecode::RET
       });
 
@@ -421,6 +453,7 @@ extern "C" Suite *get_bytecode_tests(void)
    tcase_add_test(tc, test_add_sub_reuse);
    tcase_add_test(tc, test_range_null);
    tcase_add_test(tc, test_uarray_deref);
+   tcase_add_test(tc, test_uarray_deref2);
    suite_add_tcase(s, tc);
 
    return s;

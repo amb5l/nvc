@@ -19,7 +19,7 @@
 
 #include "util.h"
 #include "vcode.h"
-#include "printer.hpp"
+#include "util/printer.hpp"
 
 #include <vector>
 #include <map>
@@ -88,6 +88,8 @@ public:
       ANDW  = 0x13,     // Bitwise and 32-bit immediate
       TESTB = 0x14,     // Mask 8-bit immediate and set flags
       TESTW = 0x15,     // Mask 32-bit immediate and set flags
+      MULB  = 0x16,     // Multiply register with 8-bit immediate
+      MULW  = 0x17,     // Multiply register with 8-bit immediate
    };
 
    enum Condition : uint8_t {
@@ -151,6 +153,7 @@ public:
       void jmp(Label& label);
       void jmp(Label& target, Condition cond);
       void mul(Register dst, Register rhs);
+      void mul(Register dst, int64_t value);
       void nop();
       void andr(Register dst, int64_t value);
       void test(Register dst, int64_t value);

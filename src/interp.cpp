@@ -205,6 +205,12 @@ Interpreter::reg_t Interpreter::run(const Bytecode *code)
          regs_[a] *= regs_[b];
          break;
 
+      case Bytecode::MULB:
+         a = reg();
+         b = imm8();
+         regs_[a] *= b;
+         break;
+
       default:
          DEBUG_ONLY(code->dump();)
          should_not_reach_here("unhandled bytecode %02x at bci %d",

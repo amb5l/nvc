@@ -103,7 +103,6 @@ char *xasprintf(const char *fmt, ...)
 int color_printf(const char *fmt, ...)
    __attribute__((format(printf, 1, 2)));
 int color_vprintf(const char *fmt, va_list ap);
-char *filter_color(const char *str, bool force_plain);
 
 void errorf(const char *fmt, ...)
    __attribute__((format(printf, 1, 2)));
