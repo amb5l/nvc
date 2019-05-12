@@ -247,10 +247,10 @@ int TerminalPrinter::color_vprint(const char *fmt, va_list ap)
       return vprint(fmt, ap);
 }
 
-BufferPrinter::BufferPrinter()
-   : buffer_((char *)xmalloc(DEFAULT_BUFFER)),
+BufferPrinter::BufferPrinter(size_t init_size)
+   : buffer_((char *)xmalloc(init_size)),
      wptr_(buffer_),
-     len_(DEFAULT_BUFFER)
+     len_(init_size)
 {
    buffer_[0] = '\0';
 }
@@ -263,14 +263,14 @@ BufferPrinter::~BufferPrinter()
 
 int BufferPrinter::vprint(const char *fmt, va_list ap)
 {
-   int nchars = vsnprintf(wptr_, buffer_ + len_ - wptr_, fmt, ap);
-
    va_list ap_copy;
    va_copy(ap_copy, ap);
 
+   int nchars = vsnprintf(wptr_, buffer_ + len_ - wptr_, fmt, ap);
+
    if (wptr_ + nchars + 1 > buffer_ + len_) {
       grow(nchars + 1);
-      vsnprintf(wptr_, buffer_ + len_ - wptr_, fmt, ap);
+      vsnprintf(wptr_, buffer_ + len_ - wptr_, fmt, ap_copy);
    }
 
    va_end(ap_copy);

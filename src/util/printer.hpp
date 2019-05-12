@@ -74,7 +74,7 @@ public:
 
 class BufferPrinter : public Printer {
 public:
-   BufferPrinter();
+   explicit BufferPrinter(size_t init_size=DEFAULT_BUFFER);
    ~BufferPrinter();
    BufferPrinter(const BufferPrinter&) = delete;
 

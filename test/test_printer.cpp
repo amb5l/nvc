@@ -27,6 +27,15 @@ START_TEST(test_buffer_print)
 }
 END_TEST
 
+START_TEST(test_buffer_overflow)
+{
+   BufferPrinter p(5);
+
+   p.print("%d", 12345678);
+   ck_assert_str_eq("12345678", p.buffer());
+}
+END_TEST
+
 START_TEST(test_color_print)
 {
    char *ptr = NULL;
@@ -57,6 +66,7 @@ extern "C" Suite *get_printer_tests(void)
 
    TCase *tc = nvc_unit_test();
    tcase_add_test(tc, test_buffer_print);
+   tcase_add_test(tc, test_buffer_overflow);
    tcase_add_test(tc, test_color_print);
    suite_add_tcase(s, tc);
 

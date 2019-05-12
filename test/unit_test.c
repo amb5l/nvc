@@ -26,6 +26,9 @@ static int run_suite(Suite *s, const char *name, int argc, char **argv)
 
    SRunner *sr = srunner_create(s);
 
+   if (is_debugger_running())
+      srunner_set_fork_status(sr, CK_NOFORK);
+
    int nfail = 0;
    if (should_run) {
       srunner_run_all(sr, CK_NORMAL);
