@@ -31,6 +31,7 @@ public:
    reg_t get_reg(unsigned num) const;
    void set_reg(unsigned num, reg_t value);
    void push(uint32_t word);
+   uint32_t pop();
    void reset();
    void dump();
 

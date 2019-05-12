@@ -107,7 +107,9 @@ START_TEST(test_compile_add1)
    fail_if(nullptr == b);
 
    check_bytecodes(b, {
+         Bytecode::ENTER, 4, 0,
          Bytecode::ADDB, 0, 0x01,
+         Bytecode::LEAVE,
          Bytecode::RET
       });
 
@@ -130,11 +132,13 @@ START_TEST(test_select) {
    fail_if(nullptr == b);
 
    check_bytecodes(b, {
+         Bytecode::ENTER, 4, 0,
          Bytecode::CMP, _1, _2,
          Bytecode::MOV, _, _1,
          Bytecode::JMPC, Bytecode::GT, _, _,
          Bytecode::MOV, _, _2,
          Bytecode::MOV, 0, _,
+         Bytecode::LEAVE,
          Bytecode::RET
       });
 
@@ -180,9 +184,8 @@ START_TEST(test_compile_fact)
    Bytecode *b = compile(InterpMachine::get(), unit);
    fail_if(nullptr == b);
 
-   fail_unless(32 == b->frame_size());
-
    check_bytecodes(b, {
+         Bytecode::ENTER, 28, 0,
          Bytecode::MOVB, _, 1,
          Bytecode::STR, _, _, _, _,
          Bytecode::CMP, _, _,
@@ -193,6 +196,7 @@ START_TEST(test_compile_fact)
          Bytecode::STR, _, _, _, _,
          Bytecode::JMP, _, _,
          Bytecode::LDR, _, _, _, _,
+         Bytecode::LEAVE,
          Bytecode::RET,
          Bytecode::LDR, _, _, _, _,
          Bytecode::LDR, _, _, _, _,
@@ -230,11 +234,13 @@ START_TEST(test_add_sub_reuse)
    fail_if(nullptr == b);
 
    check_bytecodes(b, {
+         Bytecode::ENTER, 12, 0,
          Bytecode::MOV, _1, 0,
          Bytecode::ADD, _1, 1,
          Bytecode::SUB, _1, 1,
          Bytecode::ADD, _1, 0,
          Bytecode::MOV, 0, _1,
+         Bytecode::LEAVE,
          Bytecode::RET
       });
 
@@ -260,7 +266,9 @@ START_TEST(test_unwrap)
    fail_if(nullptr == b);
 
    check_bytecodes(b, {
-         Bytecode::LDR, 0, InterpMachine::SP_REG, 0, 0,
+         Bytecode::ENTER, 4, 0,
+         Bytecode::LDR, 0, InterpMachine::FP_REG, 4, 0,
+         Bytecode::LEAVE,
          Bytecode::RET
       });
 
@@ -285,7 +293,9 @@ START_TEST(test_uarray_dir)
    fail_if(nullptr == b);
 
    check_bytecodes(b, {
-         Bytecode::LDR, 0, InterpMachine::SP_REG, 4, 0,
+         Bytecode::ENTER, 8, 0,
+         Bytecode::LDR, 0, InterpMachine::FP_REG, 8, 0,
+         Bytecode::LEAVE,
          Bytecode::RET
       });
 
@@ -310,9 +320,11 @@ START_TEST(test_uarray_dir_highdim)
    fail_if(nullptr == b);
 
    check_bytecodes(b, {
-         Bytecode::LDR, 0, InterpMachine::SP_REG, 4, 0,
+         Bytecode::ENTER, 8, 0,
+         Bytecode::LDR, 0, InterpMachine::FP_REG, 8, 0,
          Bytecode::TESTW, 0, 0, 2, 0, 0,
          Bytecode::CSET, 0, Bytecode::NZ,
+         Bytecode::LEAVE,
          Bytecode::RET
       });
 
@@ -339,9 +351,11 @@ START_TEST(test_uarray_left_right)
    fail_if(nullptr == b);
 
    check_bytecodes(b, {
-         Bytecode::LDR, _, InterpMachine::SP_REG, 8, 0,
-         Bytecode::LDR, _, InterpMachine::SP_REG, 12, 0,
+         Bytecode::ENTER, 16, 0,
+         Bytecode::LDR, _, InterpMachine::FP_REG, 12, 0,
+         Bytecode::LDR, _, InterpMachine::FP_REG, 16, 0,
          Bytecode::ADD, 0, _,
+         Bytecode::LEAVE,
          Bytecode::RET
       });
 
@@ -369,9 +383,10 @@ START_TEST(test_range_null)
    fail_if(nullptr == b);
 
    check_bytecodes(b, {
-         Bytecode::LDR, _, InterpMachine::SP_REG, 8, 0,
-         Bytecode::LDR, _, InterpMachine::SP_REG, 12, 0,
-         Bytecode::LDR, _1, InterpMachine::SP_REG, 4, 0,
+         Bytecode::ENTER, 16, 00,
+         Bytecode::LDR, _, InterpMachine::FP_REG, 12, 0,
+         Bytecode::LDR, _, InterpMachine::FP_REG, 16, 0,
+         Bytecode::LDR, _1, InterpMachine::FP_REG, 8, 0,
          Bytecode::TESTB, _1, 1,
          Bytecode::JMPC, Bytecode::Z, _, _,
          Bytecode::CMP, _, _,
@@ -380,6 +395,7 @@ START_TEST(test_range_null)
          Bytecode::CMP, _, _,
          Bytecode::CSET, _, Bytecode::LT,
          Bytecode::MOV, 0, _,
+         Bytecode::LEAVE,
          Bytecode::RET
       });
 
@@ -406,9 +422,11 @@ START_TEST(test_uarray_deref)
    fail_if(nullptr == b);
 
    check_bytecodes(b, {
-         Bytecode::LDR, 0, InterpMachine::SP_REG, 0, 0,
+         Bytecode::ENTER, 12, 0,
+         Bytecode::LDR, 0, InterpMachine::FP_REG, 4, 0,
          Bytecode::ADDB, 0, 4,
          Bytecode::LDR, 0, 0, 0, 0,
+         Bytecode::LEAVE,
          Bytecode::RET
       });
 
@@ -437,10 +455,13 @@ START_TEST(test_uarray_deref2)
    fail_if(nullptr == b);
 
    check_bytecodes(b, {
-         Bytecode::LDR, 0, InterpMachine::SP_REG, 0, 0,
+         Bytecode::ENTER, 16, 0,
+         Bytecode::LDR, 0, InterpMachine::FP_REG, 4, 0,
          Bytecode::MULB, 1, 4,
          Bytecode::ADD, 1, 0,
          Bytecode::LDR, 1, 1, 0, 0,
+         Bytecode::MOV, 0, 1,
+         Bytecode::LEAVE,
          Bytecode::RET
       });
 

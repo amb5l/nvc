@@ -41,6 +41,15 @@ void Interpreter::push(uint32_t word)
    mem_access(InterpMachine::SP_REG, 0, InterpMachine::WORD_SIZE) = word;
 }
 
+uint32_t Interpreter::pop()
+{
+   const uint32_t result =
+      mem_access(InterpMachine::SP_REG, 0, InterpMachine::WORD_SIZE);
+   regs_[InterpMachine::SP_REG] += InterpMachine::WORD_SIZE;
+   assert(regs_[InterpMachine::SP_REG] <= STACK_SIZE);
+   return result;
+}
+
 static inline uint8_t interp_cmp(Interpreter::reg_t lhs, Interpreter::reg_t rhs)
 {
    uint8_t flags = 0;
@@ -97,8 +106,8 @@ inline int16_t Interpreter::imm16()
 inline uint32_t& Interpreter::mem_access(int reg, int offset, int size)
 {
    const int base = regs_[reg] + offset;
-   assert(offset >= 0);
-   assert(offset + size <= MEM_SIZE);
+   assert(base >= 0);
+   assert(base + size <= MEM_SIZE);
    assert(base % InterpMachine::WORD_SIZE == 0);
    return mem_[base / InterpMachine::WORD_SIZE];
 }
@@ -111,8 +120,6 @@ Interpreter::reg_t Interpreter::run(const Bytecode *code)
    bytes_ = code->bytes();
    bci_ = 0;
    last_bci_ = 0;
-
-   assert(regs_[InterpMachine::SP_REG] - code->frame_size() >= 0);
 
    int32_t a, b, c;
    for (;;) {
@@ -211,6 +218,19 @@ Interpreter::reg_t Interpreter::run(const Bytecode *code)
          regs_[a] *= b;
          break;
 
+      case Bytecode::ENTER:
+         a = imm16();
+         push(regs_[InterpMachine::FP_REG]);
+         regs_[InterpMachine::FP_REG] = regs_[InterpMachine::SP_REG];
+         assert(regs_[InterpMachine::SP_REG] - a >= 0);
+         regs_[InterpMachine::SP_REG] -= a;
+         break;
+
+      case Bytecode::LEAVE:
+         regs_[InterpMachine::SP_REG] = regs_[InterpMachine::FP_REG];
+         regs_[InterpMachine::FP_REG] = pop();
+         break;
+
       default:
          DEBUG_ONLY(code->dump();)
          should_not_reach_here("unhandled bytecode %02x at bci %d",
@@ -236,7 +256,35 @@ void Interpreter::on_crash()
    bytecode_->dump(StdoutPrinter(), last_bci_);
 
    printf("\nRegisters:\n  ");
-   for (int i = 0; i < InterpMachine::NUM_REGS; i++)
-      printf("R%-2d %08x%s", i, regs_[i], i % 4 == 3 ? "\n  " : "    ");
-   printf("\n");
+   for (int i = 0; i < InterpMachine::NUM_REGS; i++) {
+      if (i == InterpMachine::SP_REG)
+         printf("SP  ");
+      else if (i == InterpMachine::FP_REG)
+         printf("FP  ");
+      else
+         printf("R%-2d ", i);
+      printf("%08x%s", regs_[i], i % 4 == 3 ? "\n  " : "    ");
+   }
+
+   printf("\nStack:\n  ");
+
+   const int sp = regs_[InterpMachine::SP_REG];
+   const int fp = regs_[InterpMachine::FP_REG];
+   const int high = (std::min(fp + 16, STACK_SIZE - 4) + 3) & ~3;
+   const int low = std::max(sp, 0) & ~3;
+
+   int col = 0;
+   for (int i = high; i >= low; i -= 4) {
+      if (i == sp)
+         printf("SP=> ");
+      else if (i == fp)
+         printf("FP=> ");
+      else
+         printf("     ");
+
+      printf("%04x %08x%s", i, mem_[i / 4], col++ % 4 == 3 ? "\n  " : "  ");
+   }
+
+   if (col % 4 != 0)
+      printf("\n");
 }

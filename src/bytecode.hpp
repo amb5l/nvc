@@ -26,29 +26,40 @@
 
 class Machine {
 public:
-   Machine(const char *name, int num_regs, int result_reg, int sp_reg,
-           int word_size);
    Machine(const Machine&) = default;
    Machine(Machine&&) = default;
    virtual ~Machine() {}
 
    const char *name() const { return name_; }
-   int num_regs() const { return num_regs_; }
-   int result_reg() const { return result_reg_; }
-   int sp_reg() const { return sp_reg_; }
-   int word_size() const { return word_size_; }
+   int num_regs() const { return desc_.num_regs; }
+   int result_reg() const { return desc_.result_reg; }
+   int sp_reg() const { return desc_.sp_reg; }
+   int fp_reg() const { return desc_.fp_reg; }
+   int word_size() const { return desc_.word_size; }
+   int stack_align() const { return desc_.stack_align; }
+   int frame_reserved() const { return desc_.frame_reserved; }
 
    int32_t read_i32(const uint8_t *p) const;
    int16_t read_i16(const uint8_t *p) const;
 
    virtual const char *fmt_reg(int reg) const;
 
+protected:
+   struct Desc {
+      const int num_regs;
+      const int result_reg;
+      const int sp_reg;
+      const int fp_reg;
+      const int word_size;
+      const int stack_align;
+      const int frame_reserved;
+   };
+
+   Machine(const char *name, const Desc& desc);
+
 private:
    const char *const name_;
-   const int         num_regs_;
-   const int         result_reg_;
-   const int         sp_reg_;
-   const int         word_size_;
+   const Desc        desc_;
 };
 
 class InterpMachine : public Machine {
@@ -58,6 +69,7 @@ public:
    static const int NUM_REGS = 32;
    static const int WORD_SIZE = 4;
    static const int SP_REG = NUM_REGS - 1;
+   static const int FP_REG = NUM_REGS - 2;
 
 private:
    InterpMachine();
@@ -90,6 +102,8 @@ public:
       TESTW = 0x15,     // Mask 32-bit immediate and set flags
       MULB  = 0x16,     // Multiply register with 8-bit immediate
       MULW  = 0x17,     // Multiply register with 8-bit immediate
+      ENTER = 0x18,     // Create a stack frame
+      LEAVE = 0x19,     // Destroy a stack frame
    };
 
    enum Condition : uint8_t {
@@ -132,7 +146,6 @@ public:
       explicit Assembler(const Machine& m);
 
       Bytecode *finish();
-      void set_frame_size(unsigned bytes);
       unsigned code_size() const { return bytes_.size(); }
       void patch_branch(unsigned offset, unsigned abs);
       void bind(Label& label);
@@ -157,6 +170,8 @@ public:
       void nop();
       void andr(Register dst, int64_t value);
       void test(Register dst, int64_t value);
+      void enter(int16_t frame_size);
+      void leave();
 
       Register sp() const { return Register{ machine_.sp_reg() }; };
 
@@ -172,7 +187,6 @@ public:
 
       std::vector<uint8_t> bytes_;
       const Machine machine_;
-      unsigned frame_size_ = 0;
 
 #if DEBUG
       std::map<int, char *> comments_;
@@ -184,7 +198,6 @@ public:
    const uint8_t *bytes() const { return bytes_; }
    size_t length() const { return len_; }
    const Machine& machine() const { return machine_; }
-   unsigned frame_size() const { return frame_size_; }
 
    void dump(Printer&& printer = StdoutPrinter(), int mark_bci=-1) const;
    void dump(Printer& printer, int mark_bci=-1) const;
@@ -194,8 +207,7 @@ public:
 #endif
 
 private:
-   explicit Bytecode(const Machine& m, const uint8_t *bytes, size_t len,
-                     unsigned frame_size);
+   explicit Bytecode(const Machine& m, const uint8_t *bytes, size_t len);
    Bytecode(const Bytecode&) = delete;
    Bytecode(const Bytecode&&) = delete;
 
@@ -205,7 +217,6 @@ private:
 
    uint8_t *const  bytes_;
    const size_t    len_;
-   const unsigned  frame_size_;
    const Machine   machine_;
 
 #if DEBUG

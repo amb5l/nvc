@@ -204,7 +204,7 @@ Bytecode::Register Compiler::in_reg(Mapping& m)
          if (current_location() != m.def()) {
             Bytecode::Register r = alloc_reg(m, false);
             __ comment("Unspill");
-            __ ldr(r, Bytecode::R(machine_.sp_reg()), m.stack_slot());
+            __ ldr(r, Bytecode::R(machine_.fp_reg()), m.stack_slot());
             return r;
          }
          else
@@ -318,7 +318,7 @@ void Compiler::spill_live()
       if (m->storage() == Mapping::STACK && !m->dead(loc) && m->dirty()) {
          assert(m->size() == machine_.word_size());
          __ comment("Spill");
-         __ str(Bytecode::R(machine_.sp_reg()), m->stack_slot(), m->reg());
+         __ str(Bytecode::R(machine_.fp_reg()), m->stack_slot(), m->reg());
       }
 
       m->demote();
@@ -376,32 +376,33 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
 {
    vcode_select_unit(unit);
 
-   int stack_offset = 0;
-   const int nvars = vcode_count_vars();
-   for (int i = 0; i < nvars; i++) {
-      vcode_var_t var = vcode_var_handle(i);
-      Mapping m(Mapping::VAR, 4 /* XXX */);
-      m.make_stack(stack_offset);
-
-      var_map_.emplace(var, m);
-      stack_offset += 4;
-   }
-
    const int nregs = vcode_count_regs();
    for (int i = 0; i < nregs; i++)
       reg_map_.emplace_back(Mapping(Mapping::TEMP, size_of(vcode_reg_type(i))));
 
+   int param_offset = machine_.frame_reserved();
    const int nparams = vcode_count_params();
    for (int i = 0; i < nparams; i++) {
       Mapping& m = reg_map_[i];
-      m.make_stack(stack_offset);
+      m.make_stack(param_offset);
       if (m.size() <= machine_.word_size()) {
          m.promote(Bytecode::R(i), true);
          live_.insert(&(reg_map_[i]));
          allocated_.set(i);
       }
       m.def(Location { 0, 0 });
-      stack_offset += m.size();
+      param_offset += m.size();
+   }
+
+   int local_offset = -machine_.word_size();
+   const int nvars = vcode_count_vars();
+   for (int i = 0; i < nvars; i++) {
+      vcode_var_t var = vcode_var_handle(i);
+      Mapping m(Mapping::VAR, size_of(vcode_var_type(var)));
+      m.make_stack(local_offset);
+
+      var_map_.emplace(var, m);
+      local_offset -= m.size();
    }
 
    find_def_use();
@@ -433,19 +434,19 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
             if (can_use_flags(m))
                m.make_flags(map_condition());
             else {
-               m.make_stack(stack_offset);
-               stack_offset += m.size();
+               m.make_stack(local_offset);
+               local_offset -= m.size();
             }
             break;
 
          default:
-            m.make_stack(stack_offset);
-            stack_offset += m.size();
+            m.make_stack(local_offset);
+            local_offset -= m.size();
          }
       }
    }
 
-   __ set_frame_size(stack_offset);
+   __ enter(-local_offset - machine_.word_size());
 
    for (int i = 0; i < nblocks; i++)
       block_map_.push_back(Bytecode::Label());
@@ -554,7 +555,7 @@ void Compiler::compile_unwrap()
 
    Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
 
-   __ ldr(dst, Bytecode::R(machine_.sp_reg()), uarray.stack_slot());
+   __ ldr(dst, Bytecode::R(machine_.fp_reg()), uarray.stack_slot());
 }
 
 void Compiler::compile_cast()
@@ -633,7 +634,7 @@ void Compiler::compile_uarray_left()
    Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
 
    const size_t offs = uarray.stack_slot() + machine_.word_size() + 4;
-   __ ldr(dst, Bytecode::R(machine_.sp_reg()), offs + 4 * vcode_get_dim(op_));
+   __ ldr(dst, Bytecode::R(machine_.fp_reg()), offs + 4 * vcode_get_dim(op_));
 }
 
 void Compiler::compile_uarray_right()
@@ -645,7 +646,7 @@ void Compiler::compile_uarray_right()
    Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
 
    const size_t offs = uarray.stack_slot() + machine_.word_size() + 8;
-   __ ldr(dst, Bytecode::R(machine_.sp_reg()), offs + 4 * vcode_get_dim(op_));
+   __ ldr(dst, Bytecode::R(machine_.fp_reg()), offs + 4 * vcode_get_dim(op_));
 }
 
 void Compiler::compile_uarray_dir()
@@ -657,7 +658,7 @@ void Compiler::compile_uarray_dir()
    Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
 
    const size_t offs = uarray.stack_slot() + machine_.word_size();
-   __ ldr(dst, Bytecode::R(machine_.sp_reg()), offs);
+   __ ldr(dst, Bytecode::R(machine_.fp_reg()), offs);
 
    const unsigned dim = vcode_get_dim(op_);
    if (vtype_dims(vcode_reg_type(arg_reg)) > 1) {
@@ -701,6 +702,7 @@ void Compiler::compile_return(int op)
       __ mov(Bytecode::R(machine_.result_reg()), value);
    }
 
+   __ leave();
    __ ret();
 
    live_.clear();
@@ -712,7 +714,7 @@ void Compiler::compile_store(int op)
    Mapping& dst = map_vcode_var(vcode_get_address(op));
    Mapping& src = map_vcode_reg(vcode_get_arg(op, 0));
 
-   __ str(Bytecode::R(machine_.sp_reg()), dst.stack_slot(), in_reg(src));
+   __ str(Bytecode::R(machine_.fp_reg()), dst.stack_slot(), in_reg(src));
 }
 
 void Compiler::compile_load(int op)
@@ -720,7 +722,7 @@ void Compiler::compile_load(int op)
    Mapping& src = map_vcode_var(vcode_get_address(op));
    Mapping& dst = map_vcode_reg(vcode_get_result(op));
 
-   __ ldr(in_reg(dst), Bytecode::R(machine_.sp_reg()), src.stack_slot());
+   __ ldr(in_reg(dst), Bytecode::R(machine_.fp_reg()), src.stack_slot());
 }
 
 void Compiler::compile_cmp(int op)

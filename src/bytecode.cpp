@@ -36,6 +36,7 @@ namespace {
       void opcode(const char *name);
       void reg();
       void immed32();
+      void immed16();
       void immed8();
       void indirect();
       void jump_target();
@@ -110,6 +111,16 @@ void Dumper::immed32()
    col_ += printer_.print("%s%d", pos_ == 0 ? " " : ", ",
                           bytecode_->machine().read_i32(bptr_));
    bptr_ += 4;
+   pos_++;
+}
+
+void Dumper::immed16()
+{
+   assert(bptr_ + 2 <= bytecode_->bytes() + bytecode_->length());
+
+   col_ += printer_.print("%s%d", pos_ == 0 ? " " : ", ",
+                          bytecode_->machine().read_i16(bptr_));
+   bptr_ += 2;
    pos_++;
 }
 
@@ -241,6 +252,13 @@ void Dumper::diassemble_one()
       condition();
       jump_target();
       break;
+   case Bytecode::ENTER:
+      opcode("ENTER");
+      immed16();
+      break;
+   case Bytecode::LEAVE:
+      opcode("LEAVE");
+      break;
    default:
       fatal("invalid bytecode %02x", *bptr_);
    }
@@ -248,9 +266,6 @@ void Dumper::diassemble_one()
 
 void Dumper::dump()
 {
-   if (bytecode_->frame_size() > 0)
-      printer_.print("FRAME %d BYTES\n", bytecode_->frame_size());
-
    printer_.print("CODE\n");
 
    while (bptr_ < bytecode_->bytes() + bytecode_->length()) {
@@ -294,11 +309,9 @@ void Dumper::dump()
    assert(bptr_ == bytecode_->bytes() + bytecode_->length());
 }
 
-Bytecode::Bytecode(const Machine& m, const uint8_t *bytes, size_t len,
-                   unsigned frame_size)
+Bytecode::Bytecode(const Machine& m, const uint8_t *bytes, size_t len)
    : bytes_(new uint8_t[len]),
      len_(len),
-     frame_size_(frame_size),
      machine_(m)
 {
 
@@ -534,6 +547,18 @@ void Bytecode::Assembler::mul(Register dst, int64_t value)
       should_not_reach_here("64-bit immediate");
 }
 
+void Bytecode::Assembler::enter(int16_t frame_size)
+{
+   assert(frame_size % machine_.stack_align() == 0);
+   emit_u8(Bytecode::ENTER);
+   emit_i16(frame_size);
+}
+
+void Bytecode::Assembler::leave()
+{
+   emit_u8(Bytecode::LEAVE);
+}
+
 void Bytecode::Assembler::emit_reg(Register reg)
 {
    assert(machine_.num_regs() <= 256);
@@ -592,15 +617,9 @@ void Bytecode::Assembler::emit_branch(unsigned offset, Label& target)
    }
 }
 
-void Bytecode::Assembler::set_frame_size(unsigned size)
-{
-   frame_size_ = size;
-}
-
 Bytecode *Bytecode::Assembler::finish()
 {
-   Bytecode *b =
-      new Bytecode(machine_, bytes_.data(), bytes_.size(), frame_size_);
+   Bytecode *b = new Bytecode(machine_, bytes_.data(), bytes_.size());
    DEBUG_ONLY(b->move_comments(std::move(comments_)));
    return b;
 }
@@ -633,22 +652,20 @@ void Bytecode::Label::bind(Assembler *owner, unsigned target)
    patch_list_.clear();
 }
 
-Machine::Machine(const char *name, int num_regs, int result_reg, int sp_reg,
-                 int word_size)
+Machine::Machine(const char *name, const Desc& desc)
    : name_(name),
-     num_regs_(num_regs),
-     result_reg_(result_reg),
-     sp_reg_(sp_reg),
-     word_size_(word_size)
+     desc_(desc)
 {
 }
 
 const char *Machine::fmt_reg(int reg) const
 {
-   assert(reg < num_regs_);
+   assert(reg < desc_.num_regs);
 
-   if (reg == sp_reg_)
+   if (reg == desc_.sp_reg)
       return "SP";
+   else if (reg == desc_.fp_reg)
+      return "FP";
    else {
       static char buf[32]; // XXX
       checked_sprintf(buf, sizeof(buf), "R%d", reg);
@@ -667,7 +684,16 @@ int16_t Machine::read_i16(const uint8_t *p) const
 }
 
 InterpMachine::InterpMachine()
-   : Machine("interp", NUM_REGS, 0, SP_REG, WORD_SIZE)
+   : Machine("interp",
+             Desc {
+                .num_regs = NUM_REGS,
+                .result_reg = 0,
+                .sp_reg = SP_REG,
+                .fp_reg = FP_REG,
+                .word_size = WORD_SIZE,
+                .stack_align = WORD_SIZE,
+                .frame_reserved = 4,   // Saved FP
+             })
 {
 }
 
