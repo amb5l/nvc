@@ -22,9 +22,16 @@
 #include "util/bitmask.hpp"
 #include "bytecode.hpp"
 
-class Interpreter : private CrashHandler {
+struct RtCallHandler {
+   virtual ~RtCallHandler() {}
+
+   virtual void report(rt_severity_t severity, const char *message,
+                       size_t length) = 0;
+};
+
+class Interpreter : CrashHandler, RtCallHandler {
 public:
-   Interpreter();
+   explicit Interpreter(RtCallHandler *handler=nullptr);
 
    typedef int32_t reg_t;
 
@@ -47,11 +54,15 @@ private:
    Interpreter(Interpreter&&) = delete;
 
    void on_crash() override;
+   void report(rt_severity_t severity, const char *message,
+               size_t length) override;
 
    inline Bytecode::OpCode opcode();
    inline uint8_t reg();
    inline int8_t imm8();
    inline int16_t imm16();
+
+   void rtcall(Bytecode::RtCall func);
 
    static_assert(STACK_SIZE < MEM_SIZE, "stack must be smaller than memory");
 
@@ -67,6 +78,7 @@ private:
    reg_t           regs_[InterpMachine::NUM_REGS];
    uint8_t         flags_ = 0;
    uint32_t        mem_[MEM_SIZE / InterpMachine::WORD_SIZE];
+   RtCallHandler  *handler_;
 
 #if DEBUG
    Bitmask         init_mask_ = Bitmask(MEM_SIZE / InterpMachine::WORD_SIZE);

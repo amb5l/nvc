@@ -51,6 +51,7 @@ tree_t add_param(tree_t call, tree_t value, param_kind_t kind, tree_t name);
 type_t array_aggregate_type(type_t array, int from_dim);
 tree_t make_default_value(type_t type, const loc_t *loc);
 unsigned bits_for_range(int64_t low, int64_t high);
+unsigned align_up(unsigned value, unsigned align);
 unsigned array_dimension(type_t a);
 type_t index_type_of(type_t type, int dim);
 range_kind_t direction_of(type_t type, unsigned dim);

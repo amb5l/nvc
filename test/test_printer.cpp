@@ -60,6 +60,17 @@ START_TEST(test_color_print)
 }
 END_TEST
 
+START_TEST(test_append)
+{
+   BufferPrinter p;
+   p.append("123");
+   p.append('x');
+   p.append("hello", 2);
+
+   ck_assert_str_eq("123xhe", p.buffer());
+}
+END_TEST
+
 extern "C" Suite *get_printer_tests(void)
 {
    Suite *s = suite_create("printer");
@@ -68,6 +79,7 @@ extern "C" Suite *get_printer_tests(void)
    tcase_add_test(tc, test_buffer_print);
    tcase_add_test(tc, test_buffer_overflow);
    tcase_add_test(tc, test_color_print);
+   tcase_add_test(tc, test_append);
    suite_add_tcase(s, tc);
 
    return s;

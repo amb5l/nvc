@@ -33,4 +33,9 @@ package body functions is
         return result;
     end function;
 
+    procedure hello is
+    begin
+        report "Hello, World!";
+    end procedure;
+
 end package body;

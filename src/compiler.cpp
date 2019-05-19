@@ -17,6 +17,7 @@
 
 #include "bytecode.hpp"
 #include "util/bitmask.hpp"
+#include "util/crashdump.hpp"
 #include "phase.h"
 #include "common.h"
 
@@ -32,7 +33,7 @@
 
 namespace {
 
-   class Compiler {
+   class Compiler : private CrashHandler {
    public:
       explicit Compiler(const Machine &m);
       Compiler(const Compiler &) = delete;
@@ -42,7 +43,7 @@ namespace {
    private:
       void compile_const(int op);
       void compile_addi(int op);
-      void compile_return(int op);
+      void compile_return();
       void compile_store(int op);
       void compile_cmp(int op);
       void compile_load(int op);
@@ -59,11 +60,15 @@ namespace {
       void compile_range_null();
       void compile_select(int op);
       void compile_load_indirect();
+      void compile_const_array();
+      void compile_report();
 
       int size_of(vcode_type_t vtype) const;
       Bytecode::Label &label_for_block(vcode_block_t block);
       void spill_live();
       void find_def_use();
+
+      void on_crash() override;
 
       struct Location {
          static Location invalid() { return Location{VCODE_INVALID_BLOCK, -1}; }
@@ -138,6 +143,8 @@ namespace {
       Bytecode::Register alloc_reg(Mapping& m, bool dirty);
       bool can_use_flags(const Mapping& m);
       Bytecode::Condition map_condition() const;
+      void evict_reg(Bytecode::Register reg);
+      void shuffle_rtcall(std::initializer_list<Mapping*> args);
 
       static bool will_clobber_flags(int op);
 
@@ -297,6 +304,7 @@ int Compiler::size_of(vcode_type_t vtype) const
 {
    switch (vtype_kind(vtype)) {
    case VCODE_TYPE_INT:
+      return MIN(1, bits_for_range(vtype_low(vtype), vtype_high(vtype)));
    case VCODE_TYPE_OFFSET:
       return 4;
    case VCODE_TYPE_UARRAY:
@@ -316,7 +324,7 @@ void Compiler::spill_live()
       assert(m->promoted());
 
       if (m->storage() == Mapping::STACK && !m->dead(loc) && m->dirty()) {
-         assert(m->size() == machine_.word_size());
+         assert(m->size() <= machine_.word_size());
          __ comment("Spill");
          __ str(Bytecode::R(machine_.fp_reg()), m->stack_slot(), m->reg());
       }
@@ -326,6 +334,27 @@ void Compiler::spill_live()
 
    allocated_.zero();
    live_.clear();
+}
+
+void Compiler::evict_reg(Bytecode::Register reg)
+{
+   if (!allocated_.is_set(reg.num))
+      return;
+
+   for (Mapping *m : live_) {
+      if (m->reg() == reg) {
+         if (m->storage() == Mapping::STACK && m->dirty()) {
+            assert(m->size() <= machine_.word_size());
+            __ comment("Shuffle registers");
+            __ str(Bytecode::R(machine_.fp_reg()), m->stack_slot(), m->reg());
+         }
+
+         m->demote();
+         live_.erase(m);
+         allocated_.clear(reg.num);
+         return;
+      }
+   }
 }
 
 void Compiler::find_def_use()
@@ -372,8 +401,48 @@ bool Compiler::can_use_flags(const Mapping& m)
    return true;
 }
 
+void Compiler::shuffle_rtcall(std::initializer_list<Mapping*> args)
+{
+   int reg_num = 0;
+   for (Mapping* arg : args) {
+      Bytecode::Register reg = Bytecode::R(reg_num++);
+
+      if (arg->promoted() && arg->reg() == reg)
+         continue;
+
+      evict_reg(reg);
+
+      if (arg->promoted()) {
+         __ mov(reg, arg->reg());
+      }
+      else {
+         switch (arg->storage()) {
+         case Mapping::CONSTANT:
+            {
+               __ mov(reg, arg->constant());
+            }
+            break;
+         case Mapping::STACK:
+            {
+               __ ldr(reg, Bytecode::R(machine_.fp_reg()), arg->stack_slot());
+            }
+            break;
+         default:
+            should_not_reach_here("unexpected storage");
+         }
+      }
+   }
+}
+
+void Compiler::on_crash()
+{
+   vcode_dump_with_mark(op_);
+}
+
 Bytecode *Compiler::compile(vcode_unit_t unit)
 {
+   WithCrashHandler crash_handler(this);
+
    vcode_select_unit(unit);
 
    const int nregs = vcode_count_regs();
@@ -393,7 +462,7 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
          next_reg++;
       }
       m.def(Location { 0, 0 });
-      param_offset += m.size();
+      param_offset += align_up(m.size(), machine_.word_size());
    }
 
    int local_offset = -machine_.word_size();
@@ -404,7 +473,7 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
       m.make_stack(local_offset);
 
       var_map_.emplace(var, m);
-      local_offset -= m.size();
+      local_offset -= align_up(m.size(), machine_.word_size());
    }
 
    find_def_use();
@@ -437,13 +506,13 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
                m.make_flags(map_condition());
             else {
                m.make_stack(local_offset);
-               local_offset -= m.size();
+               local_offset -= align_up(m.size(), machine_.word_size());
             }
             break;
 
          default:
             m.make_stack(local_offset);
-            local_offset -= m.size();
+            local_offset -= align_up(m.size(), machine_.word_size());
          }
       }
    }
@@ -471,7 +540,7 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
             compile_addi(j);
             break;
          case VCODE_OP_RETURN:
-            compile_return(j);
+            compile_return();
             break;
          case VCODE_OP_STORE:
             compile_store(j);
@@ -520,6 +589,12 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
             break;
          case VCODE_OP_LOAD_INDIRECT:
             compile_load_indirect();
+            break;
+         case VCODE_OP_CONST_ARRAY:
+            compile_const_array();
+            break;
+         case VCODE_OP_REPORT:
+            compile_report();
             break;
          case VCODE_OP_BOUNDS:
          case VCODE_OP_COMMENT:
@@ -680,6 +755,44 @@ void Compiler::compile_load_indirect()
    __ ldr(dst, src, 0);
 }
 
+void Compiler::compile_const_array()
+{
+   const unsigned offset = __ data_size();
+
+   const int nargs = vcode_count_args(op_);
+   for (int i = 0; i < nargs; i++) {
+      Mapping& m = map_vcode_reg(vcode_get_arg(op_, i));
+      assert(m.storage() == Mapping::CONSTANT);
+
+      switch (m.size()) {
+      case 1:
+         {
+            int8_t raw = m.constant();
+            __ data((uint8_t *)&raw, sizeof(raw));
+         }
+         break;
+
+      default:
+         should_not_reach_here("unhandled size %d", m.size());
+      }
+   }
+
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
+   __ reldata(dst, offset);
+}
+
+void Compiler::compile_report()
+{
+   Mapping& severity = map_vcode_reg(vcode_get_arg(op_, 0));
+   Mapping& message = map_vcode_reg(vcode_get_arg(op_, 1));
+   Mapping& length = map_vcode_reg(vcode_get_arg(op_, 2));
+
+   shuffle_rtcall({ &severity, &message, &length });
+   spill_live();
+
+   __ rtcall(Bytecode::RT_REPORT);
+}
+
 void Compiler::compile_addi(int op)
 {
    vcode_type_t result_type = vcode_reg_type(vcode_get_result(op_));
@@ -696,12 +809,14 @@ void Compiler::compile_addi(int op)
    __ add(dst, value);
 }
 
-void Compiler::compile_return(int op)
+void Compiler::compile_return()
 {
-   Bytecode::Register value = in_reg(map_vcode_reg(vcode_get_arg(op, 0)));
+   if (vcode_count_args(op_) > 0) {
+      Bytecode::Register value = in_reg(map_vcode_reg(vcode_get_arg(op_, 0)));
 
-   if (value != Bytecode::R(machine_.result_reg())) {
-      __ mov(Bytecode::R(machine_.result_reg()), value);
+      if (value != Bytecode::R(machine_.result_reg())) {
+         __ mov(Bytecode::R(machine_.result_reg()), value);
+      }
    }
 
    __ leave();

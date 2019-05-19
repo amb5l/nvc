@@ -52,7 +52,7 @@ namespace {
 }
 
 Dumper::Dumper(Printer& printer, const Bytecode *b, int mark_bci)
-   : bptr_(b->bytes()),
+   : bptr_(b->code()),
      bytecode_(b),
      printer_(printer),
      mark_bci_(mark_bci)
@@ -106,7 +106,7 @@ void Dumper::indirect()
 
 void Dumper::immed32()
 {
-   assert(bptr_ + 4 <= bytecode_->bytes() + bytecode_->length());
+   assert(bptr_ + 4 <= bytecode_->code() + bytecode_->code_length());
 
    col_ += printer_.print("%s%d", pos_ == 0 ? " " : ", ",
                           bytecode_->machine().read_i32(bptr_));
@@ -116,7 +116,7 @@ void Dumper::immed32()
 
 void Dumper::immed16()
 {
-   assert(bptr_ + 2 <= bytecode_->bytes() + bytecode_->length());
+   assert(bptr_ + 2 <= bytecode_->code() + bytecode_->code_length());
 
    col_ += printer_.print("%s%d", pos_ == 0 ? " " : ", ",
                           bytecode_->machine().read_i16(bptr_));
@@ -134,12 +134,12 @@ void Dumper::immed8()
 
 void Dumper::jump_target()
 {
-   assert(bptr_ + 2 <= bytecode_->bytes() + bytecode_->length());
+   assert(bptr_ + 2 <= bytecode_->code() + bytecode_->code_length());
 
    const int delta = bytecode_->machine().read_i16(bptr_);
 
    col_ += printer_.print("%s%d", pos_ == 0 ? " " : ", ",
-                          (int)(bptr_ - bytecode_->bytes() + delta));
+                          (int)(bptr_ - bytecode_->code() + delta));
    bptr_ += 2;
    pos_++;
 }
@@ -259,6 +259,15 @@ void Dumper::diassemble_one()
    case Bytecode::LEAVE:
       opcode("LEAVE");
       break;
+   case Bytecode::RELDATA:
+      opcode("RELDATA");
+      reg();
+      immed16();
+      break;
+   case Bytecode::RTCALL:
+      opcode("RTCALL");
+      immed8();
+      break;
    default:
       fatal("invalid bytecode %02x", *bptr_);
    }
@@ -268,12 +277,12 @@ void Dumper::dump()
 {
    printer_.print("CODE\n");
 
-   while (bptr_ < bytecode_->bytes() + bytecode_->length()) {
+   while (bptr_ < bytecode_->code() + bytecode_->code_length()) {
       const uint8_t *startp = bptr_;
       col_ = 0;
       pos_ = 0;
 
-      const int bci = bptr_ - bytecode_->bytes();
+      const int bci = bptr_ - bytecode_->code();
 
       if (bci == mark_bci_)
          printer_.color_print("$bold$$red$");
@@ -306,21 +315,57 @@ void Dumper::dump()
       assert(bptr_ > startp);
    }
 
-   assert(bptr_ == bytecode_->bytes() + bytecode_->length());
+   assert(bptr_ == bytecode_->code() + bytecode_->code_length());
+
+   int data_len = bytecode_->data_length();
+   if (data_len > 0) {
+      printer_.print("DATA");
+
+      const uint8_t *data = bytecode_->data();
+      for (int i = 0; i < data_len; i += 16) {
+         printer_.print("\n ");
+
+         for (int j = 0; j < 16; j++) {
+            if (i + j < data_len)
+               printer_.print(" %02x", data[i + j]);
+            else
+               printer_.print("   ");
+         }
+
+         printer_.print(" |");
+
+         for (int j = 0; j < 16; j++) {
+            if (i + j < data_len) {
+               char ch = isalnum((int)data[i + j]) ? data[i + j] : '.';
+               printer_.print("%c", ch);
+            }
+            else
+               printer_.print(" ");
+         }
+
+         printer_.print("|\n");
+      }
+
+      printer_.print("\n");
+   }
 }
 
-Bytecode::Bytecode(const Machine& m, const uint8_t *bytes, size_t len)
-   : bytes_(new uint8_t[len]),
-     len_(len),
+Bytecode::Bytecode(const Machine& m, const uint8_t *code, size_t code_len,
+                   const uint8_t *data, size_t data_len)
+   : code_(new uint8_t[code_len]),
+     code_len_(code_len),
+     data_(new uint8_t[data_len]),
+     data_len_(data_len),
      machine_(m)
 {
-
-   memcpy(bytes_, bytes, len);
+   memcpy(code_, code, code_len);
+   memcpy(data_, data, data_len);
 }
 
 Bytecode::~Bytecode()
 {
-   delete[] bytes_;
+   delete[] code_;
+   delete[] data_;
 
 #if DEBUG
    for (auto &p : comments_)
@@ -346,7 +391,7 @@ void Bytecode::move_comments(std::map<int, char*>&& comments)
 
 const char *Bytecode::comment(const uint8_t *bptr) const
 {
-   const int offset = bptr - bytes_;
+   const int offset = bptr - code_;
    auto it = comments_.find(offset);
    if (it == comments_.end())
       return nullptr;
@@ -369,7 +414,7 @@ void Bytecode::Assembler::comment(const char *fmt, ...)
    char *buf = xvasprintf(fmt, ap);
    va_end(ap);
 
-   const int offset = bytes_.size();
+   const int offset = code_.size();
    auto it = comments_.find(offset);
    if (it == comments_.end())
       comments_[offset] = buf;
@@ -406,14 +451,14 @@ void Bytecode::Assembler::cset(Register dst, Condition cond)
 
 void Bytecode::Assembler::jmp(Label& target)
 {
-   const unsigned start = bytes_.size();
+   const unsigned start = code_.size();
    emit_u8(Bytecode::JMP);
    emit_branch(start, target);
 }
 
 void Bytecode::Assembler::jmp(Label& target, Condition cond)
 {
-   const unsigned start = bytes_.size();
+   const unsigned start = code_.size();
    emit_u8(Bytecode::JMPC);
    emit_u8(cond);
    emit_branch(start, target);
@@ -547,11 +592,30 @@ void Bytecode::Assembler::mul(Register dst, int64_t value)
       should_not_reach_here("64-bit immediate");
 }
 
-void Bytecode::Assembler::enter(int16_t frame_size)
+void Bytecode::Assembler::data(const uint8_t *bytes, size_t len)
+{
+   data_.insert(data_.end(), bytes, bytes + len);
+}
+
+void Bytecode::Assembler::enter(uint16_t frame_size)
 {
    assert(frame_size % machine_.stack_align() == 0);
    emit_u8(Bytecode::ENTER);
    emit_i16(frame_size);
+}
+
+void Bytecode::Assembler::reldata(Register dst, uint16_t offset)
+{
+   assert(offset < data_.size());
+   emit_u8(Bytecode::RELDATA);
+   emit_reg(dst);
+   emit_i16(offset);
+}
+
+void Bytecode::Assembler::rtcall(RtCall func)
+{
+   emit_u8(Bytecode::RTCALL);
+   emit_u8(func);
 }
 
 void Bytecode::Assembler::leave()
@@ -568,49 +632,49 @@ void Bytecode::Assembler::emit_reg(Register reg)
 
 void Bytecode::Assembler::emit_u8(uint8_t byte)
 {
-   bytes_.push_back(byte);
+   code_.push_back(byte);
 }
 
 void Bytecode::Assembler::emit_i32(int32_t value)
 {
-   bytes_.push_back(value & 0xff);
-   bytes_.push_back((value >> 8) & 0xff);
-   bytes_.push_back((value >> 16) & 0xff);
-   bytes_.push_back((value >> 24) & 0xff);
+   code_.push_back(value & 0xff);
+   code_.push_back((value >> 8) & 0xff);
+   code_.push_back((value >> 16) & 0xff);
+   code_.push_back((value >> 24) & 0xff);
 }
 
 void Bytecode::Assembler::emit_i16(int16_t value)
 {
-   bytes_.push_back(value & 0xff);
-   bytes_.push_back((value >> 8) & 0xff);
+   code_.push_back(value & 0xff);
+   code_.push_back((value >> 8) & 0xff);
 }
 
 void Bytecode::Assembler::bind(Label &label)
 {
-   label.bind(this, bytes_.size());
+   label.bind(this, code_.size());
 }
 
 void Bytecode::Assembler::patch_branch(unsigned offset, unsigned abs)
 {
-   switch (bytes_[offset]) {
+   switch (code_[offset]) {
    case Bytecode::JMP:  offset += 1; break;
    case Bytecode::JMPC: offset += 2; break;
    default:
-      should_not_reach_here("cannot patch %02x", bytes_[offset]);
+      should_not_reach_here("cannot patch %02x", code_[offset]);
    }
 
-   assert(offset + 2 <= bytes_.size());
+   assert(offset + 2 <= code_.size());
 
    const int delta = abs - offset;
 
-   bytes_[offset] = delta & 0xff;
-   bytes_[offset + 1] = (delta >> 8) & 0xff;
+   code_[offset] = delta & 0xff;
+   code_[offset + 1] = (delta >> 8) & 0xff;
 }
 
 void Bytecode::Assembler::emit_branch(unsigned offset, Label& target)
 {
    if (target.bound())
-      emit_i16(target.target() - bytes_.size());
+      emit_i16(target.target() - code_.size());
    else {
       target.add_patch(offset);
       emit_i16(-1);
@@ -619,7 +683,8 @@ void Bytecode::Assembler::emit_branch(unsigned offset, Label& target)
 
 Bytecode *Bytecode::Assembler::finish()
 {
-   Bytecode *b = new Bytecode(machine_, bytes_.data(), bytes_.size());
+   Bytecode *b = new Bytecode(machine_, code_.data(), code_.size(),
+                              data_.data(), data_.size());
    DEBUG_ONLY(b->move_comments(std::move(comments_)));
    return b;
 }

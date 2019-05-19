@@ -4,7 +4,60 @@
 #include "phase.h"
 #include "test_util.h"
 
+#include <queue>
+
 #define __ _asm.
+
+namespace {
+   struct ExpectReport {
+      rt_severity_t  severity;
+      const char    *message;
+   };
+
+   class UnitTestRtCall : public RtCallHandler {
+   public:
+      ~UnitTestRtCall();
+
+      void expect_report(ExpectReport expect);
+
+   private:
+      void report(rt_severity_t severity, const char *message,
+                  size_t length) override;
+
+      std::queue<ExpectReport> expect_report_;
+   };
+}
+
+UnitTestRtCall::~UnitTestRtCall()
+{
+   if (!expect_report_.empty()) {
+      const ExpectReport& e = expect_report_.front();
+      fail("did not print expected message '%s'", e.message);
+   }
+}
+
+void UnitTestRtCall::expect_report(ExpectReport expect)
+{
+   expect_report_.push(expect);
+}
+
+void UnitTestRtCall::report(rt_severity_t severity, const char *message,
+                            size_t length)
+{
+   if (expect_report_.empty()) {
+      color_printf("$bold$$magenta$%*s$$\n", (int)length, message);
+   }
+   else {
+      BufferPrinter tmp;
+      tmp.append(message, length);
+
+      const ExpectReport& e = expect_report_.front();
+      ck_assert_str_eq(e.message, tmp.buffer());
+      ck_assert_int_eq(e.severity, severity);
+
+      expect_report_.pop();
+   }
+}
 
 START_TEST(test_add1)
 {
@@ -138,6 +191,20 @@ START_TEST(test_uarray_sum)
 }
 END_TEST
 
+START_TEST(test_report)
+{
+   vcode_unit_t unit = vcode_find_unit(ident_new("BC.FUNCTIONS.HELLO"));
+   fail_if(unit == nullptr);
+
+   UnitTestRtCall rtcall;
+   rtcall.expect_report({ SEVERITY_NOTE, "Hello, World!" });
+
+   Interpreter interp(&rtcall);
+   Bytecode *b = compile(InterpMachine::get(), unit);
+   interp.run(b);
+}
+END_TEST
+
 extern "C" Suite *get_interp_tests(void)
 {
    Suite *s = suite_create("interp");
@@ -151,6 +218,7 @@ extern "C" Suite *get_interp_tests(void)
    nvc_add_bytecode_fixture(tc_vhdl);
    tcase_add_test(tc_vhdl, test_uarray_len);
    tcase_add_test(tc_vhdl, test_uarray_get);
+   tcase_add_test(tc_vhdl, test_report);
    //tcase_add_test(tc_vhdl, test_uarray_sum);
    suite_add_tcase(s, tc_vhdl);
 

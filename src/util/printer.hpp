@@ -34,8 +34,9 @@ public:
    virtual int color_vprint(const char *fmt, va_list ap);
    virtual int vprint(const char *fmt, va_list ap) = 0;
    virtual void flush() {}
-   virtual void copy(const char *str);
-   virtual void copy(char ch);
+   virtual void append(const char *str);
+   virtual void append(const char *str, size_t len);
+   virtual void append(char ch);
 
 protected:
    static void filter_color(const char *str, Printer& out, bool want_color);
@@ -48,8 +49,9 @@ public:
 
    int vprint(const char *fmt, va_list ap) override;
    void flush() override;
-   void copy(const char *str) override;
-   void copy(char ch) override;
+   void append(const char *str) override;
+   void append(const char *str, size_t len) override;
+   void append(char ch) override;
 
 private:
    FILE *file_;
@@ -79,8 +81,9 @@ public:
    BufferPrinter(const BufferPrinter&) = delete;
 
    int vprint(const char *fmt, va_list ap) override;
-   void copy(const char *str) override;
-   void copy(char ch) override;
+   void append(const char *str) override;
+   void append(const char *str, size_t len) override;
+   void append(char ch) override;
 
    const char *buffer() const { return buffer_; }
    void clear();

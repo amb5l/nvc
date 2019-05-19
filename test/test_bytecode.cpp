@@ -43,21 +43,21 @@ static void teardown()
 static void check_bytecodes(const Bytecode *b,
                             const std::vector<CheckBytecode>&& expect)
 {
-   const uint8_t *p = b->bytes();
+   const uint8_t *p = b->code();
    std::map<int, int> match;
 
    for (const CheckBytecode& c : expect) {
-      if (p >= b->bytes() + b->length()) {
-         fail("expected more than %d bytecodes", b->length());
+      if (p >= b->code() + b->code_length()) {
+         fail("expected more than %d bytecodes", b->code_length());
          return;
       }
       else if ((c.value & 0xff00) == 0) {
          // Directly compare the bytecode
          if (c.value != *p) {
             BufferPrinter printer;
-            b->dump(printer, p - b->bytes());
+            b->dump(printer, p - b->code());
             fail("bytecode mismatch at offset %d\n\n%s",
-                 p - b->bytes(), printer.buffer());
+                 p - b->code(), printer.buffer());
          }
          else if (c.value != *p)
             return;
@@ -74,7 +74,7 @@ static void check_bytecodes(const Bytecode *b,
                BufferPrinter printer;
                b->dump(printer);
                fail("placeholder _%d mismatch at offset %d\n\n%s",
-                    num, p - b->bytes(), printer.buffer());
+                    num, p - b->code(), printer.buffer());
             }
             else if (match[num] != *p)
                return;
@@ -87,7 +87,7 @@ static void check_bytecodes(const Bytecode *b,
       }
    }
 
-   if ((int)b->length() != p - b->bytes()) {
+   if ((int)b->code_length() != p - b->code()) {
       BufferPrinter printer;
       b->dump(printer);
       fail("did not match all bytecodes\n\n%s", printer.buffer());
@@ -469,26 +469,56 @@ START_TEST(test_uarray_deref2)
 }
 END_TEST
 
+START_TEST(test_compile_hello)
+{
+   vcode_unit_t unit = vcode_find_unit(ident_new("BC.FUNCTIONS.HELLO"));
+   fail_if(nullptr == unit);
+
+   vcode_select_unit(unit);
+
+   Bytecode *b = compile(InterpMachine::get(), unit);
+   fail_if(nullptr == b);
+
+   check_bytecodes(b, {
+         Bytecode::ENTER, 4, 0,
+         Bytecode::RELDATA, _, 0, 0,
+         Bytecode::STR, _, _, _, _,   // Pointless
+         Bytecode::MOVB, 0, SEVERITY_NOTE,
+         Bytecode::LDR, 1, _, _, _,   // Unspilling store above
+         Bytecode::MOVB, 2, 13,
+         Bytecode::RTCALL, Bytecode::RT_REPORT,
+         Bytecode::LEAVE,
+         Bytecode::RET,
+      });
+
+   delete b;
+}
+END_TEST
+
 extern "C" Suite *get_bytecode_tests(void)
 {
    Suite *s = suite_create("bytecode");
 
-   TCase *tc = nvc_unit_test("core");
-   nvc_add_bytecode_fixture(tc);
-   tcase_add_checked_fixture(tc, setup, teardown);
-   tcase_add_test(tc, test_compile_add1);
-   tcase_add_test(tc, test_patch);
-   tcase_add_test(tc, test_compile_fact);
-   tcase_add_test(tc, test_select);
-   tcase_add_test(tc, test_unwrap);
-   tcase_add_test(tc, test_uarray_dir);
-   tcase_add_test(tc, test_uarray_dir_highdim);
-   tcase_add_test(tc, test_uarray_left_right);
-   tcase_add_test(tc, test_add_sub_reuse);
-   tcase_add_test(tc, test_range_null);
-   tcase_add_test(tc, test_uarray_deref);
-   tcase_add_test(tc, test_uarray_deref2);
-   suite_add_tcase(s, tc);
+   TCase *tc_vcode = nvc_unit_test("vcode");
+   tcase_add_checked_fixture(tc_vcode, setup, teardown);
+   tcase_add_test(tc_vcode, test_compile_add1);
+   tcase_add_test(tc_vcode, test_patch);
+   tcase_add_test(tc_vcode, test_select);
+   tcase_add_test(tc_vcode, test_unwrap);
+   tcase_add_test(tc_vcode, test_uarray_dir);
+   tcase_add_test(tc_vcode, test_uarray_dir_highdim);
+   tcase_add_test(tc_vcode, test_uarray_left_right);
+   tcase_add_test(tc_vcode, test_add_sub_reuse);
+   tcase_add_test(tc_vcode, test_range_null);
+   tcase_add_test(tc_vcode, test_uarray_deref);
+   tcase_add_test(tc_vcode, test_uarray_deref2);
+   suite_add_tcase(s, tc_vcode);
+
+   TCase *tc_vhdl = nvc_unit_test("vhdl");
+   nvc_add_bytecode_fixture(tc_vhdl);
+   tcase_add_test(tc_vhdl, test_compile_fact);
+   tcase_add_test(tc_vhdl, test_compile_hello);
+   suite_add_tcase(s, tc_vhdl);
 
    return s;
 }

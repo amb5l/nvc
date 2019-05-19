@@ -78,32 +78,38 @@ private:
 class Bytecode {
 public:
    enum OpCode : uint8_t {
-      NOP   = 0x00,     // Do nothing
-      MOVW  = 0x01,     // Move 32-bit literal to register
-      RET   = 0x02,     // Return from function
-      ADD   = 0x03,     // Add two registers
-      MOV   = 0x04,     // Move register to another register
-      ADDW  = 0x05,     // Add 32-bit immediate to register
-      STR   = 0x06,     // Store register to memory (indirect)
-      LDR   = 0x07,     // Load register from memory (indirect)
-      MUL   = 0x08,     // Multiply 32-bit registers
-      CMP   = 0x09,     // Compare two registers
-      CSET  = 0x0a,     // Set register based on flags
-      JMP   = 0x0b,     // Jump to address
+      NOP     = 0x00,     // Do nothing
+      MOVW    = 0x01,     // Move 32-bit literal to register
+      RET     = 0x02,     // Return from function
+      ADD     = 0x03,     // Add two registers
+      MOV     = 0x04,     // Move register to another register
+      ADDW    = 0x05,     // Add 32-bit immediate to register
+      STR     = 0x06,     // Store register to memory (indirect)
+      LDR     = 0x07,     // Load register from memory (indirect)
+      MUL     = 0x08,     // Multiply 32-bit registers
+      CMP     = 0x09,     // Compare two registers
+      CSET    = 0x0a,     // Set register based on flags
+      JMP     = 0x0b,     // Jump to address
       // Unused 0x0c
       // Unused 0x0d
-      MOVB  = 0x0e,     // Move 8-bit literal to register
-      ADDB  = 0x0f,     // Add 8-bit immediate to register
-      JMPC  = 0x10,     // Jump if condition code set
-      SUB   = 0x11,     // Subtract two registers
-      ANDB  = 0x12,     // Bitwise and with sign-extended 8-bit immediate
-      ANDW  = 0x13,     // Bitwise and 32-bit immediate
-      TESTB = 0x14,     // Mask 8-bit immediate and set flags
-      TESTW = 0x15,     // Mask 32-bit immediate and set flags
-      MULB  = 0x16,     // Multiply register with 8-bit immediate
-      MULW  = 0x17,     // Multiply register with 8-bit immediate
-      ENTER = 0x18,     // Create a stack frame
-      LEAVE = 0x19,     // Destroy a stack frame
+      MOVB    = 0x0e,     // Move 8-bit literal to register
+      ADDB    = 0x0f,     // Add 8-bit immediate to register
+      JMPC    = 0x10,     // Jump if condition code set
+      SUB     = 0x11,     // Subtract two registers
+      ANDB    = 0x12,     // Bitwise and with sign-extended 8-bit immediate
+      ANDW    = 0x13,     // Bitwise and 32-bit immediate
+      TESTB   = 0x14,     // Mask 8-bit immediate and set flags
+      TESTW   = 0x15,     // Mask 32-bit immediate and set flags
+      MULB    = 0x16,     // Multiply register with 8-bit immediate
+      MULW    = 0x17,     // Multiply register with 8-bit immediate
+      ENTER   = 0x18,     // Create a stack frame
+      LEAVE   = 0x19,     // Destroy a stack frame
+      RELDATA = 0x20,     // Get address of data section
+      RTCALL  = 0x21,     // Call runtime helper function
+   };
+
+   enum RtCall : uint8_t {
+      RT_REPORT = 0x00,
    };
 
    enum Condition : uint8_t {
@@ -146,7 +152,8 @@ public:
       explicit Assembler(const Machine& m);
 
       Bytecode *finish();
-      unsigned code_size() const { return bytes_.size(); }
+      unsigned code_size() const { return code_.size(); }
+      unsigned data_size() const { return data_.size(); }
       void patch_branch(unsigned offset, unsigned abs);
       void bind(Label& label);
 
@@ -170,8 +177,11 @@ public:
       void nop();
       void andr(Register dst, int64_t value);
       void test(Register dst, int64_t value);
-      void enter(int16_t frame_size);
+      void enter(uint16_t frame_size);
       void leave();
+      void data(const uint8_t *bytes, size_t len);
+      void reldata(Register dst, uint16_t offset);
+      void rtcall(RtCall func);
 
       Register sp() const { return Register{ machine_.sp_reg() }; };
 
@@ -185,7 +195,8 @@ public:
       Assembler(const Assembler &) = delete;
       Assembler(Assembler &&) = default;
 
-      std::vector<uint8_t> bytes_;
+      std::vector<uint8_t> code_;
+      std::vector<uint8_t> data_;
       const Machine machine_;
 
 #if DEBUG
@@ -195,8 +206,10 @@ public:
 
    ~Bytecode();
 
-   const uint8_t *bytes() const { return bytes_; }
-   size_t length() const { return len_; }
+   const uint8_t *code() const { return code_; }
+   size_t code_length() const { return code_len_; }
+   const uint8_t *data() const { return data_; }
+   size_t data_length() const { return data_len_; }
    const Machine& machine() const { return machine_; }
 
    void dump(Printer&& printer = StdoutPrinter(), int mark_bci=-1) const;
@@ -207,7 +220,8 @@ public:
 #endif
 
 private:
-   explicit Bytecode(const Machine& m, const uint8_t *bytes, size_t len);
+   explicit Bytecode(const Machine& m, const uint8_t *code, size_t code_len,
+                     const uint8_t *data, size_t data_len);
    Bytecode(const Bytecode&) = delete;
    Bytecode(const Bytecode&&) = delete;
 
@@ -215,8 +229,10 @@ private:
    void move_comments(std::map<int, char*>&& comments);
 #endif
 
-   uint8_t *const  bytes_;
-   const size_t    len_;
+   uint8_t *const  code_;
+   const size_t    code_len_;
+   uint8_t *const  data_;
+   const size_t    data_len_;
    const Machine   machine_;
 
 #if DEBUG

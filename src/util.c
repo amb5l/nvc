@@ -480,7 +480,6 @@ void error_at(const loc_t *loc, const char *fmt, ...)
 static void call_crash_handler(void)
 {
    if (dump_callback != NULL) {
-      fprintf(stderr, "\n");
       dump_fn_t tmp = dump_callback;
       dump_callback = NULL;
       (*tmp)(dump_context);
@@ -634,7 +633,6 @@ void fatal_trace(const char *fmt, ...)
    call_crash_handler();
 
 #ifndef NO_STACK_TRACE
-   fprintf(stderr, "\n");
    show_stacktrace();
 #endif  // !NO_STACK_TRACE
 

@@ -714,6 +714,11 @@ const char *fmt_time(uint64_t t)
    return fmt_time_r(get_fmt_buf(BUF_SZ), BUF_SZ, t);
 }
 
+unsigned align_up(unsigned value, unsigned align)
+{
+   return (value + align - 1) & ~(align - 1);
+}
+
 unsigned bits_for_range(int64_t low, int64_t high)
 {
    assert(low <= high);

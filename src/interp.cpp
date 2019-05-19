@@ -20,7 +20,8 @@
 #include <cassert>
 #include <cstring>
 
-Interpreter::Interpreter()
+Interpreter::Interpreter(RtCallHandler *handler)
+   : handler_(handler ?: this)
 {
    reset();
 }
@@ -120,18 +121,42 @@ uint32_t& Interpreter::mem_wr(int reg, int offset, int size)
 
 const uint32_t& Interpreter::mem_rd(int reg, int offset, int size) const
 {
-   const int base = regs_[reg] + offset;
+   unsigned base = regs_[reg] + offset;
 
-   assert(base >= 0);
-   assert(base + size <= MEM_SIZE);
-   assert(base % InterpMachine::WORD_SIZE == 0);
+   if (base & 0x80000000) {
+      base &= 0x7fffffff;
+
+      assert(base + size <= bytecode_->data_length());
+      return *((uint32_t *)bytecode_->data() + base);
+   }
+   else {
+      assert(base + size <= MEM_SIZE);
+      assert(base % InterpMachine::WORD_SIZE == 0);
 
 #if DEBUG
-   if (unlikely(init_mask_.is_clear(base / InterpMachine::WORD_SIZE)))
-      fatal_trace("read uninitialised memory at 0x%04x", base);
+      if (unlikely(init_mask_.is_clear(base / InterpMachine::WORD_SIZE)))
+         fatal_trace("read uninitialised memory at 0x%04x", base);
 #endif
 
-   return mem_[base / InterpMachine::WORD_SIZE];
+      return mem_[base / InterpMachine::WORD_SIZE];
+   }
+}
+
+void Interpreter::rtcall(Bytecode::RtCall func)
+{
+   switch (func) {
+   case Bytecode::RT_REPORT:
+      {
+         rt_severity_t severity = (rt_severity_t)regs_[0];
+         unsigned length = regs_[2];
+         const char *message = (char *)&(mem_rd(1, 0, length));
+         handler_->report(severity, message, length);
+      }
+      break;
+
+   default:
+      should_not_reach_here("unhandled rtcall %d", func);
+   }
 }
 
 Interpreter::reg_t Interpreter::run(const Bytecode *code)
@@ -139,7 +164,7 @@ Interpreter::reg_t Interpreter::run(const Bytecode *code)
    WithCrashHandler handler(this);
 
    bytecode_ = code;
-   bytes_ = code->bytes();
+   bytes_ = code->code();
    bci_ = 0;
    last_bci_ = 0;
 
@@ -253,8 +278,18 @@ Interpreter::reg_t Interpreter::run(const Bytecode *code)
          regs_[InterpMachine::FP_REG] = pop();
          break;
 
+      case Bytecode::RELDATA:
+         a = reg();
+         b = imm16();
+         regs_[a] = 0x80000000 | b;
+         break;
+
+      case Bytecode::RTCALL:
+         a = imm8();
+         rtcall((Bytecode::RtCall)a);
+         break;
+
       default:
-         DEBUG_ONLY(code->dump();)
          should_not_reach_here("unhandled bytecode %02x at bci %d",
                                bytes_[bci_ - 1], bci_ - 1);
       }
@@ -309,4 +344,10 @@ void Interpreter::on_crash()
 
    if (col % 4 != 0)
       printf("\n");
+}
+
+void Interpreter::report(rt_severity_t severity, const char *message,
+                         size_t length)
+{
+   color_printf("$bold$$green$%*s$$\n", (int)length, message);
 }

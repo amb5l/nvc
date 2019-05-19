@@ -84,7 +84,7 @@ void Printer::filter_color(const char *str, Printer& out, bool want_color)
                }
 
                if (!found) {
-                  out.copy(escape_start);
+                  out.append(escape_start);
                   escape_start = str;
                }
                else
@@ -95,21 +95,26 @@ void Printer::filter_color(const char *str, Printer& out, bool want_color)
          }
       }
       else if (escape_start == nullptr)
-         out.copy(*str);
+         out.append(*str);
 
       ++str;
    }
 
    if (escape_start != nullptr)
-      out.copy(escape_start);
+      out.append(escape_start);
 }
 
-void Printer::copy(const char *str)
+void Printer::append(const char *str)
 {
    print("%s", str);
 }
 
-void Printer::copy(char ch)
+void Printer::append(const char *str, size_t len)
+{
+   print("%*s", (int)len, str);
+}
+
+void Printer::append(char ch)
 {
    print("%c", ch);
 }
@@ -153,12 +158,17 @@ void FilePrinter::flush()
    fflush(file_);
 }
 
-void FilePrinter::copy(const char *str)
+void FilePrinter::append(const char *str)
 {
    fputs(str, file_);
 }
 
-void FilePrinter::copy(char ch)
+void FilePrinter::append(const char *str, size_t len)
+{
+   fwrite(str, 1, len, file_);
+}
+
+void FilePrinter::append(char ch)
 {
    fputc(ch, file_);
 }
@@ -295,7 +305,7 @@ void BufferPrinter::clear()
    buffer_[0] = '\0';
 }
 
-void BufferPrinter::copy(const char *str)
+void BufferPrinter::append(const char *str)
 {
    const int nchars = strlen(str);
    if (wptr_ + nchars + 1 > buffer_ + len_)
@@ -305,7 +315,17 @@ void BufferPrinter::copy(const char *str)
    wptr_ += nchars;
 }
 
-void BufferPrinter::copy(char ch)
+void BufferPrinter::append(const char *str, size_t len)
+{
+   if (wptr_ + len + 1 > buffer_ + len_)
+      grow(len + 1);
+
+   memcpy(wptr_, str, len);
+   wptr_[len] = '\0';
+   wptr_ += len;
+}
+
+void BufferPrinter::append(char ch)
 {
    if (wptr_ + 2 > buffer_ + len_)
       grow(2);
