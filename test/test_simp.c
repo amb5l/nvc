@@ -590,7 +590,7 @@ Suite *get_simp_tests(void)
 {
    Suite *s = suite_create("simplify");
 
-   TCase *tc_core = nvc_unit_test();
+   TCase *tc_core = nvc_unit_test("core");
    tcase_add_test(tc_core, test_cfold);
    tcase_add_test(tc_core, test_proc);
    tcase_add_test(tc_core, test_args);

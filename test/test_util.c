@@ -71,9 +71,9 @@ void expect_errors(const nvc_error_t *lines)
    error_lines = lines;
 }
 
-TCase *nvc_unit_test(void)
+TCase *nvc_unit_test(const char *name)
 {
-   TCase *tc_core = tcase_create("Core");
+   TCase *tc_core = tcase_create(name);
    tcase_add_checked_fixture(tc_core, setup_per_test, teardown_per_test);
    return tc_core;
 }

@@ -89,6 +89,32 @@ START_TEST(test_uarray_len)
 }
 END_TEST
 
+START_TEST(test_uarray_get)
+{
+   vcode_unit_t unit = vcode_find_unit(
+      ident_new("BC.FUNCTIONS.GET(22BC.FUNCTIONS.INT_ARRAYN)I"));
+   fail_if(unit == nullptr);
+
+   Interpreter interp;
+   Bytecode *b = compile(InterpMachine::get(), unit);
+
+   int datap = Interpreter::STACK_SIZE;
+   interp.set_reg(0, datap);
+   for (int i = 0; i < 10; i++)
+      interp.mem_wr(0, 4 * i) = i;
+
+   interp.push(10);        // Right
+   interp.push(2);         // Left
+   interp.push(RANGE_TO);  // Direction
+   interp.push(datap);     // Data pointer
+
+   for (int i = 0; i < 10; i++) {
+      interp.set_reg(0, 2 + i);
+      ck_assert_int_eq(i, interp.run(b));
+   }
+}
+END_TEST
+
 START_TEST(test_uarray_sum)
 {
    vcode_unit_t unit = vcode_find_unit(
@@ -98,10 +124,15 @@ START_TEST(test_uarray_sum)
    Interpreter interp;
    Bytecode *b = compile(InterpMachine::get(), unit);
 
-   interp.push(10);        // Right
-   interp.push(2);         // Left
+   int datap = Interpreter::STACK_SIZE;
+   interp.set_reg(0, datap);
+   for (int i = 0; i < 10; i++)
+      interp.mem_wr(0, 4 * i) = 1;
+
+   interp.push(0);         // Right
+   interp.push(0);         // Left
    interp.push(RANGE_TO);  // Direction
-   interp.push(0);         // Data pointer
+   interp.push(datap);     // Data pointer
 
    ck_assert_int_eq(9, interp.run(b));
 }
@@ -111,13 +142,17 @@ extern "C" Suite *get_interp_tests(void)
 {
    Suite *s = suite_create("interp");
 
-   TCase *tc = nvc_unit_test();
-   nvc_add_bytecode_fixture(tc);
-   tcase_add_test(tc, test_fact);
-   tcase_add_test(tc, test_add1);
-   tcase_add_test(tc, test_uarray_len);
-   tcase_add_test(tc, test_uarray_sum);
-   suite_add_tcase(s, tc);
+   TCase *tc_basic = nvc_unit_test("basic");
+   tcase_add_test(tc_basic, test_fact);
+   tcase_add_test(tc_basic, test_add1);
+   suite_add_tcase(s, tc_basic);
+
+   TCase *tc_vhdl = nvc_unit_test("vhdl");
+   nvc_add_bytecode_fixture(tc_vhdl);
+   tcase_add_test(tc_vhdl, test_uarray_len);
+   tcase_add_test(tc_vhdl, test_uarray_get);
+   //tcase_add_test(tc_vhdl, test_uarray_sum);
+   suite_add_tcase(s, tc_vhdl);
 
    return s;
 }

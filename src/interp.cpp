@@ -38,13 +38,12 @@ void Interpreter::push(uint32_t word)
 {
    regs_[InterpMachine::SP_REG] -= InterpMachine::WORD_SIZE;
    assert(regs_[InterpMachine::SP_REG] >= 0);
-   mem_access(InterpMachine::SP_REG, 0, InterpMachine::WORD_SIZE) = word;
+   mem_wr(InterpMachine::SP_REG, 0) = word;
 }
 
 uint32_t Interpreter::pop()
 {
-   const uint32_t result =
-      mem_access(InterpMachine::SP_REG, 0, InterpMachine::WORD_SIZE);
+   const uint32_t result = mem_rd(InterpMachine::SP_REG, 0);
    regs_[InterpMachine::SP_REG] += InterpMachine::WORD_SIZE;
    assert(regs_[InterpMachine::SP_REG] <= STACK_SIZE);
    return result;
@@ -103,12 +102,35 @@ inline int16_t Interpreter::imm16()
     return res;
 }
 
-inline uint32_t& Interpreter::mem_access(int reg, int offset, int size)
+uint32_t& Interpreter::mem_wr(int reg, int offset, int size)
 {
    const int base = regs_[reg] + offset;
+
    assert(base >= 0);
    assert(base + size <= MEM_SIZE);
    assert(base % InterpMachine::WORD_SIZE == 0);
+
+#if DEBUG
+   for (int i = 0; i < size; i += InterpMachine::WORD_SIZE)
+      init_mask_.set((base + i) / InterpMachine::WORD_SIZE);
+#endif
+
+   return mem_[base / InterpMachine::WORD_SIZE];
+}
+
+const uint32_t& Interpreter::mem_rd(int reg, int offset, int size) const
+{
+   const int base = regs_[reg] + offset;
+
+   assert(base >= 0);
+   assert(base + size <= MEM_SIZE);
+   assert(base % InterpMachine::WORD_SIZE == 0);
+
+#if DEBUG
+   if (unlikely(init_mask_.is_clear(base / InterpMachine::WORD_SIZE)))
+      fatal_trace("read uninitialised memory at 0x%04x", base);
+#endif
+
    return mem_[base / InterpMachine::WORD_SIZE];
 }
 
@@ -166,14 +188,14 @@ Interpreter::reg_t Interpreter::run(const Bytecode *code)
          a = reg();
          b = imm16();
          c = reg();
-         mem_access(a, b, InterpMachine::WORD_SIZE) = regs_[c];
+         mem_wr(a, b) = regs_[c];
          break;
 
       case Bytecode::LDR:
          a = reg();
          b = reg();
          c = imm16();
-         regs_[a] = mem_access(b, c, InterpMachine::WORD_SIZE);
+         regs_[a] = mem_rd(b, c);
          break;
 
       case Bytecode::CMP:

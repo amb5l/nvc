@@ -64,7 +64,7 @@ extern "C" Suite *get_printer_tests(void)
 {
    Suite *s = suite_create("printer");
 
-   TCase *tc = nvc_unit_test();
+   TCase *tc = nvc_unit_test("core");
    tcase_add_test(tc, test_buffer_print);
    tcase_add_test(tc, test_buffer_overflow);
    tcase_add_test(tc, test_color_print);

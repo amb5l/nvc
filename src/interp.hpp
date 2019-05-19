@@ -19,6 +19,7 @@
 
 #include "util.h"
 #include "util/crashdump.hpp"
+#include "util/bitmask.hpp"
 #include "bytecode.hpp"
 
 class Interpreter : private CrashHandler {
@@ -34,6 +35,12 @@ public:
    uint32_t pop();
    void reset();
    void dump();
+   const uint32_t& mem_rd(int reg, int offset,
+                          int size=InterpMachine::WORD_SIZE) const;
+   uint32_t& mem_wr(int reg, int offset, int size=InterpMachine::WORD_SIZE);
+
+   static const int STACK_SIZE = 256;
+   static const int MEM_SIZE   = 1024;
 
 private:
    Interpreter(const Interpreter&) = delete;
@@ -45,10 +52,6 @@ private:
    inline uint8_t reg();
    inline int8_t imm8();
    inline int16_t imm16();
-   inline uint32_t& mem_access(int reg, int offset, int size);
-
-   static const int STACK_SIZE = 256;
-   static const int MEM_SIZE   = 1024;
 
    static_assert(STACK_SIZE < MEM_SIZE, "stack must be smaller than memory");
 
@@ -64,4 +67,8 @@ private:
    reg_t           regs_[InterpMachine::NUM_REGS];
    uint8_t         flags_ = 0;
    uint32_t        mem_[MEM_SIZE / InterpMachine::WORD_SIZE];
+
+#if DEBUG
+   Bitmask         init_mask_ = Bitmask(MEM_SIZE / InterpMachine::WORD_SIZE);
+#endif
 };

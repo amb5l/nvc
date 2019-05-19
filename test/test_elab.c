@@ -633,7 +633,7 @@ Suite *get_elab_tests(void)
 {
    Suite *s = suite_create("elab");
 
-   TCase *tc = nvc_unit_test();
+   TCase *tc = nvc_unit_test("core");
    tcase_add_test(tc, test_elab1);
    tcase_add_test(tc, test_elab2);
    tcase_add_test(tc, test_elab3);

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 
 START_TEST(test_ident_new)
@@ -288,7 +289,7 @@ Suite *get_ident_tests(void)
 {
    Suite *s = suite_create("ident");
 
-   TCase *tc_core = nvc_unit_test();
+   TCase *tc_core = nvc_unit_test("core");
    tcase_add_test(tc_core, test_ident_new);
    tcase_add_test(tc_core, test_compare);
    tcase_add_test(tc_core, test_istr);

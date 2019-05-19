@@ -1995,7 +1995,7 @@ Suite *get_sem_tests(void)
 {
    Suite *s = suite_create("sem");
 
-   TCase *tc_core = nvc_unit_test();
+   TCase *tc_core = nvc_unit_test("core");
    tcase_add_test(tc_core, test_integer);
    tcase_add_test(tc_core, test_ports);
    tcase_add_test(tc_core, test_scope);

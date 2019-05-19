@@ -382,13 +382,15 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
 
    int param_offset = machine_.frame_reserved();
    const int nparams = vcode_count_params();
+   int next_reg = 0;
    for (int i = 0; i < nparams; i++) {
       Mapping& m = reg_map_[i];
       m.make_stack(param_offset);
       if (m.size() <= machine_.word_size()) {
-         m.promote(Bytecode::R(i), true);
-         live_.insert(&(reg_map_[i]));
-         allocated_.set(i);
+         m.promote(Bytecode::R(next_reg), true);
+         live_.insert(&m);
+         allocated_.set(next_reg);
+         next_reg++;
       }
       m.def(Location { 0, 0 });
       param_offset += m.size();

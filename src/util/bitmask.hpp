@@ -29,6 +29,7 @@ public:
    void zero();
    void one();
    bool is_set(unsigned n) const;
+   bool is_clear(unsigned n) const;
    int first_clear() const;
    int first_set() const;
    bool all_clear() const;

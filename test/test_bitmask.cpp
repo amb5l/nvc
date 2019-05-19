@@ -95,7 +95,7 @@ extern "C" Suite *get_bitmask_tests(void)
 {
    Suite *s = suite_create("bitmask");
 
-   TCase *tc = nvc_unit_test();
+   TCase *tc = nvc_unit_test("core");
    tcase_add_test(tc, test_basic);
    tcase_add_test(tc, test_random);
    tcase_add_test(tc, test_all_set_clear);

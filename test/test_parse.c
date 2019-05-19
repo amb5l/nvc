@@ -2816,7 +2816,7 @@ Suite *get_parse_tests(void)
 {
    Suite *s = suite_create("parse");
 
-   TCase *tc_core = nvc_unit_test();
+   TCase *tc_core = nvc_unit_test("core");
    tcase_add_test(tc_core, test_entity);
    tcase_add_test(tc_core, test_arch);
    tcase_add_test(tc_core, test_process);

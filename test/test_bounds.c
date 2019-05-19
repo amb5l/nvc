@@ -320,7 +320,7 @@ Suite *get_bounds_tests(void)
 {
    Suite *s = suite_create("bounds");
 
-   TCase *tc_core = nvc_unit_test();
+   TCase *tc_core = nvc_unit_test("core");
    tcase_add_test(tc_core, test_bounds);
    tcase_add_test(tc_core, test_bounds2);
    tcase_add_test(tc_core, test_case);

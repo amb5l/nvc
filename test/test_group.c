@@ -486,7 +486,7 @@ Suite *get_group_tests(void)
 {
    Suite *s = suite_create("group");
 
-   TCase *tc_core = nvc_unit_test();
+   TCase *tc_core = nvc_unit_test("core");
    tcase_add_test(tc_core, test_group_one);
    tcase_add_test(tc_core, test_group_two);
    tcase_add_test(tc_core, test_group_three);

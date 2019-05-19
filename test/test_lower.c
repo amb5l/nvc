@@ -3119,7 +3119,7 @@ Suite *get_lower_tests(void)
 {
    Suite *s = suite_create("lower");
 
-   TCase *tc = nvc_unit_test();
+   TCase *tc = nvc_unit_test("core");
    tcase_add_test(tc, test_wait1);
    tcase_add_test(tc, test_assign1);
    tcase_add_test(tc, test_assign2);

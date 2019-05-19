@@ -29,7 +29,7 @@ typedef struct {
 } nvc_error_t;
 
 void expect_errors(const nvc_error_t *lines);
-TCase *nvc_unit_test(void);
+TCase *nvc_unit_test(const char *name);
 int nvc_run_test(Suite *s);
 tree_t run_elab(void);
 tree_t _parse_and_check(const tree_kind_t *array, int num,

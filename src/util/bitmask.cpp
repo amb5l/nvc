@@ -54,6 +54,12 @@ bool Bitmask::is_set(unsigned n) const
    return !!(qwords_[n >> 6] & (UINT64_C(1) << (n & 0x3f)));
 }
 
+bool Bitmask::is_clear(unsigned n) const
+{
+   assert(n < size_);
+   return !(qwords_[n >> 6] & (UINT64_C(1) << (n & 0x3f)));
+}
+
 int Bitmask::first_clear() const
 {
    for (size_t i = 0; i < qwords(size_); i++) {

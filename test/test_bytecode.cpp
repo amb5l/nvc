@@ -437,7 +437,7 @@ END_TEST
 
 START_TEST(test_uarray_deref2)
 {
-   vcode_unit_t unit = emit_function(ident_new("uarray_deref"),
+   vcode_unit_t unit = emit_function(ident_new("uarray_deref2"),
                                      context, i32_type);
 
    vcode_type_t ui32_type = vtype_uarray(1, i32_type, i32_type);
@@ -456,11 +456,10 @@ START_TEST(test_uarray_deref2)
 
    check_bytecodes(b, {
          Bytecode::ENTER, 16, 0,
-         Bytecode::LDR, 0, InterpMachine::FP_REG, 4, 0,
-         Bytecode::MULB, 1, 4,
-         Bytecode::ADD, 1, 0,
-         Bytecode::LDR, 1, 1, 0, 0,
-         Bytecode::MOV, 0, 1,
+         Bytecode::LDR, 1, InterpMachine::FP_REG, 4, 0,
+         Bytecode::MULB, 0, 4,
+         Bytecode::ADD, 0, 1,
+         Bytecode::LDR, 0, 0, 0, 0,
          Bytecode::LEAVE,
          Bytecode::RET
       });
@@ -474,7 +473,7 @@ extern "C" Suite *get_bytecode_tests(void)
 {
    Suite *s = suite_create("bytecode");
 
-   TCase *tc = nvc_unit_test();
+   TCase *tc = nvc_unit_test("core");
    nvc_add_bytecode_fixture(tc);
    tcase_add_checked_fixture(tc, setup, teardown);
    tcase_add_test(tc, test_compile_add1);

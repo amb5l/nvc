@@ -477,6 +477,17 @@ void error_at(const loc_t *loc, const char *fmt, ...)
    va_end(ap);
 }
 
+static void call_crash_handler(void)
+{
+   if (dump_callback != NULL) {
+      fprintf(stderr, "\n");
+      dump_fn_t tmp = dump_callback;
+      dump_callback = NULL;
+      (*tmp)(dump_context);
+      dump_context = NULL;
+   }
+}
+
 static void catch_in_unit_test(print_fn_t fn, const loc_t *loc,
                                const char *fmt, va_list ap)
 {
@@ -620,7 +631,10 @@ void fatal_trace(const char *fmt, ...)
    fmt_color(ANSI_FG_RED, "Fatal", fmt, ap);
    va_end(ap);
 
+   call_crash_handler();
+
 #ifndef NO_STACK_TRACE
+   fprintf(stderr, "\n");
    show_stacktrace();
 #endif  // !NO_STACK_TRACE
 
@@ -1069,13 +1083,7 @@ static void bt_sighandler(int sig, siginfo_t *info, void *secret)
 
    color_fprintf(stderr, " ***$$\n");
 
-   if (dump_callback != NULL) {
-      fprintf(stderr, "\n");
-      dump_fn_t tmp = dump_callback;
-      dump_callback = NULL;
-      (*tmp)(dump_context);
-      dump_context = NULL;
-   }
+   call_crash_handler();
 
 #if defined HAVE_LIBDW
    fprintf(stderr, "\n");
