@@ -28,7 +28,7 @@ Interpreter::Interpreter(RtCallHandler& handler)
 
 void Interpreter::reset()
 {
-   DEBUG_ONLY(memset(heap_.mem(), 0xde, heap_.size());)
+   DEBUG_ONLY(memset(mem_, 0xde, MEM_SIZE);)
    DEBUG_ONLY(memset(regs_, 0xad, sizeof(regs_));)
 
    // Stack is at bottom of memory and grows downwards
@@ -155,7 +155,7 @@ void Interpreter::rtcall(Bytecode::RtCall func)
       break;
 
    case Bytecode::RT_IMAGE:
-      regs_[0] = handler_.image(heap_, regs_[0]);
+      //regs_[0] = handler_.image(heap_, regs_[0]);
       break;
 
    default:
@@ -343,8 +343,7 @@ void Interpreter::on_crash()
       else
          printf("     ");
 
-      printf("%04x %08x%s", i, ((uint32_t *)heap_.mem())[i],
-             col++ % 4 == 3 ? "\n  " : "  ");
+      printf("%04x %08x%s", i, mem_[i], col++ % 4 == 3 ? "\n  " : "  ");
    }
 
    if (col % 4 != 0)
@@ -363,12 +362,14 @@ void DefaultRtCallHandler::report(rt_severity_t severity, const char *message,
    color_printf("$bold$$green$%.*s$$\n", (int)length, message);
 }
 
+#if 0
 Heap::Offset DefaultRtCallHandler::image(Heap& heap, int64_t value)
 {
    Heap::Offset offs = heap.alloc(Heap::TAG_RTCALL, 16);
    checked_sprintf((char *)heap.ref(offs), 16, "%ld", value);
    return offs;
 }
+#endif
 
 int32_t DefaultRtCallHandler::uarray_len(UArray *uarray, int dim)
 {

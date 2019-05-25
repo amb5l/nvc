@@ -21,10 +21,10 @@
 #include "util/crashdump.hpp"
 #include "util/bitmask.hpp"
 #include "bytecode.hpp"
-#include "rt/heap.hpp"
+//#include "rt/heap.hpp"
 
 struct UArray {
-   Heap::Offset data_offset;
+   uint32_t data_offset;
    uint32_t     dir_mask;
    struct {
       int32_t left;
@@ -43,7 +43,7 @@ struct RtCallHandler {
 
    virtual void report(rt_severity_t severity, const char *message,
                        size_t length) = 0;
-   virtual Heap::Offset image(Heap& heap, int64_t value) = 0;
+   //virtual Heap::Offset image(Heap& heap, int64_t value) = 0;
    virtual int32_t uarray_len(UArray *uarray, int dim) = 0;
 };
 
@@ -51,7 +51,7 @@ class DefaultRtCallHandler : public RtCallHandler {
 public:
    void report(rt_severity_t severity, const char *message,
                size_t length) override;
-   Heap::Offset image(Heap& heap, int64_t value) override;
+   //Heap::Offset image(Heap& heap, int64_t value) override;
    int32_t uarray_len(UArray *uarray, int dim) override;
 
    static DefaultRtCallHandler& get();
@@ -104,7 +104,7 @@ private:
    reg_t           regs_[InterpMachine::NUM_REGS];
    uint8_t         flags_ = 0;
    uint32_t        mem_[MEM_SIZE / InterpMachine::WORD_SIZE];
-   RtCallHandler  *handler_;
+   RtCallHandler&  handler_;
 
 #if DEBUG
    Bitmask         init_mask_ = Bitmask(MEM_SIZE / InterpMachine::WORD_SIZE);

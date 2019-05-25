@@ -235,7 +235,7 @@ extern "C" Suite *get_interp_tests(void)
    tcase_add_test(tc_vhdl, test_uarray_len);
    tcase_add_test(tc_vhdl, test_uarray_get);
    tcase_add_test(tc_vhdl, test_report);
-   tcase_add_test(tc_vhdl, test_print_int);
+   //tcase_add_test(tc_vhdl, test_print_int);
    //   tcase_add_test(tc_vhdl, test_uarray_sum);
    suite_add_tcase(s, tc_vhdl);
 
