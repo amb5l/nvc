@@ -106,10 +106,13 @@ public:
       LEAVE   = 0x19,     // Destroy a stack frame
       RELDATA = 0x20,     // Get address of data section
       RTCALL  = 0x21,     // Call runtime helper function
+      LEA     = 0x22,     // Load effective address
    };
 
    enum RtCall : uint8_t {
-      RT_REPORT = 0x00,
+      RT_REPORT     = 0x00,
+      RT_IMAGE      = 0x01,
+      RT_UARRAY_LEN = 0x02,
    };
 
    enum Condition : uint8_t {
@@ -182,6 +185,7 @@ public:
       void data(const uint8_t *bytes, size_t len);
       void reldata(Register dst, uint16_t offset);
       void rtcall(RtCall func);
+      void lea(Register dst, Register indirect, int16_t offset);
 
       Register sp() const { return Register{ machine_.sp_reg() }; };
 

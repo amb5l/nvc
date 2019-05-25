@@ -55,6 +55,7 @@ namespace {
       void compile_uarray_left();
       void compile_uarray_right();
       void compile_uarray_dir();
+      void compile_uarray_len();
       void compile_unwrap();
       void compile_cast();
       void compile_range_null();
@@ -62,6 +63,7 @@ namespace {
       void compile_load_indirect();
       void compile_const_array();
       void compile_report();
+      void compile_image();
 
       int size_of(vcode_type_t vtype) const;
       Bytecode::Label &label_for_block(vcode_block_t block);
@@ -575,6 +577,9 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
          case VCODE_OP_UARRAY_DIR:
             compile_uarray_dir();
             break;
+         case VCODE_OP_UARRAY_LEN:
+            compile_uarray_len();
+            break;
          case VCODE_OP_CAST:
             compile_cast();
             break;
@@ -596,10 +601,16 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
          case VCODE_OP_REPORT:
             compile_report();
             break;
+         case VCODE_OP_IMAGE:
+            compile_image();
+            break;
          case VCODE_OP_BOUNDS:
-         case VCODE_OP_COMMENT:
          case VCODE_OP_DEBUG_INFO:
          case VCODE_OP_DYNAMIC_BOUNDS:
+            break;
+         case VCODE_OP_COMMENT:
+         case VCODE_OP_HEAP_SAVE:
+         case VCODE_OP_HEAP_RESTORE:
             break;
          default:
             vcode_dump_with_mark(j);
@@ -747,6 +758,17 @@ void Compiler::compile_uarray_dir()
       assert(dim == 0);
 }
 
+void Compiler::compile_uarray_len()
+{
+   vcode_reg_t arg_reg = vcode_get_arg(op_, 0);
+   Mapping& uarray = map_vcode_reg(arg_reg);
+   assert(uarray.storage() == Mapping::STACK);
+
+   evict_reg(Bytecode::R(0));
+   __ lea(Bytecode::R(0), Bytecode::R(machine_.fp_reg()), uarray.stack_slot());
+   __ rtcall(Bytecode::RT_UARRAY_LEN);
+}
+
 void Compiler::compile_load_indirect()
 {
    Bytecode::Register src = in_reg(map_vcode_reg(vcode_get_arg(op_, 0)));
@@ -791,6 +813,19 @@ void Compiler::compile_report()
    spill_live();
 
    __ rtcall(Bytecode::RT_REPORT);
+}
+
+void Compiler::compile_image()
+{
+   Mapping& value = map_vcode_reg(vcode_get_arg(op_, 0));
+
+   shuffle_rtcall({ &value });
+   spill_live();
+
+   __ rtcall(Bytecode::RT_IMAGE);
+
+   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
+   __ mov(dst, Bytecode::R(0));
 }
 
 void Compiler::compile_addi(int op)

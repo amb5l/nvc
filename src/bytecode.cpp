@@ -41,6 +41,7 @@ namespace {
       void indirect();
       void jump_target();
       void condition();
+      void rtcall();
 
       const uint8_t  *bptr_;
       const Bytecode *bytecode_;
@@ -128,6 +129,20 @@ void Dumper::immed8()
 {
    int val = (int8_t)*bptr_;
    col_ += printer_.print("%s%d", pos_ == 0 ? " " : ", ", val);
+   bptr_++;
+   pos_++;
+}
+
+void Dumper::rtcall()
+{
+   const char *func = "???";
+   switch ((Bytecode::RtCall)*bptr_) {
+   case Bytecode::RT_IMAGE:      func = "image"; break;
+   case Bytecode::RT_REPORT:     func = "report"; break;
+   case Bytecode::RT_UARRAY_LEN: func = "uarray_len"; break;
+   }
+
+   col_ += printer_.print("%s%s", pos_ == 0 ? " " : ", ", func);
    bptr_++;
    pos_++;
 }
@@ -228,6 +243,11 @@ void Dumper::diassemble_one()
       reg();
       indirect();
       break;
+   case Bytecode::LEA:
+      opcode("LEA");
+      reg();
+      indirect();
+      break;
    case Bytecode::MUL:
       opcode("MUL");
       reg();
@@ -266,7 +286,7 @@ void Dumper::diassemble_one()
       break;
    case Bytecode::RTCALL:
       opcode("RTCALL");
-      immed8();
+      rtcall();
       break;
    default:
       fatal("invalid bytecode %02x", *bptr_);
@@ -475,6 +495,14 @@ void Bytecode::Assembler::str(Register indirect, int16_t offset, Register src)
 void Bytecode::Assembler::ldr(Register dst, Register indirect, int16_t offset)
 {
    emit_u8(Bytecode::LDR);
+   emit_reg(dst);
+   emit_reg(indirect);
+   emit_i16(offset);
+}
+
+void Bytecode::Assembler::lea(Register dst, Register indirect, int16_t offset)
+{
+   emit_u8(Bytecode::LEA);
    emit_reg(dst);
    emit_reg(indirect);
    emit_i16(offset);

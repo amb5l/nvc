@@ -27,7 +27,9 @@ package body functions is
     function sum(arr : int_array) return integer is
         variable result : integer := 0;
     begin
-        for i in 2 to 10 loop
+        report integer'image(arr'left);
+        for i in arr'range loop
+            report "loop";
             result := result + arr(i);
         end loop;
         return result;
@@ -36,6 +38,11 @@ package body functions is
     procedure hello is
     begin
         report "Hello, World!";
+    end procedure;
+
+    procedure print_int(x : in integer) is
+    begin
+        report integer'image(x);
     end procedure;
 
 end package body;

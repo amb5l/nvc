@@ -20,15 +20,15 @@
 #include <cassert>
 #include <cstring>
 
-Interpreter::Interpreter(RtCallHandler *handler)
-   : handler_(handler ?: this)
+Interpreter::Interpreter(RtCallHandler& handler)
+   : handler_(handler)
 {
    reset();
 }
 
 void Interpreter::reset()
 {
-   DEBUG_ONLY(memset(mem_, 0xde, sizeof(mem_));)
+   DEBUG_ONLY(memset(heap_.mem(), 0xde, heap_.size());)
    DEBUG_ONLY(memset(regs_, 0xad, sizeof(regs_));)
 
    // Stack is at bottom of memory and grows downwards
@@ -150,8 +150,12 @@ void Interpreter::rtcall(Bytecode::RtCall func)
          rt_severity_t severity = (rt_severity_t)regs_[0];
          unsigned length = regs_[2];
          const char *message = (char *)&(mem_rd(1, 0, length));
-         handler_->report(severity, message, length);
+         handler_.report(severity, message, length);
       }
+      break;
+
+   case Bytecode::RT_IMAGE:
+      regs_[0] = handler_.image(heap_, regs_[0]);
       break;
 
    default:
@@ -161,7 +165,7 @@ void Interpreter::rtcall(Bytecode::RtCall func)
 
 Interpreter::reg_t Interpreter::run(const Bytecode *code)
 {
-   WithCrashHandler handler(this);
+   WithCrashHandler crash_handler(this);
 
    bytecode_ = code;
    bytes_ = code->code();
@@ -339,15 +343,42 @@ void Interpreter::on_crash()
       else
          printf("     ");
 
-      printf("%04x %08x%s", i, mem_[i / 4], col++ % 4 == 3 ? "\n  " : "  ");
+      printf("%04x %08x%s", i, ((uint32_t *)heap_.mem())[i],
+             col++ % 4 == 3 ? "\n  " : "  ");
    }
 
    if (col % 4 != 0)
       printf("\n");
 }
 
-void Interpreter::report(rt_severity_t severity, const char *message,
-                         size_t length)
+DefaultRtCallHandler& DefaultRtCallHandler::get()
 {
-   color_printf("$bold$$green$%*s$$\n", (int)length, message);
+   static DefaultRtCallHandler instance;
+   return instance;
+}
+
+void DefaultRtCallHandler::report(rt_severity_t severity, const char *message,
+                                  size_t length)
+{
+   color_printf("$bold$$green$%.*s$$\n", (int)length, message);
+}
+
+Heap::Offset DefaultRtCallHandler::image(Heap& heap, int64_t value)
+{
+   Heap::Offset offs = heap.alloc(Heap::TAG_RTCALL, 16);
+   checked_sprintf((char *)heap.ref(offs), 16, "%ld", value);
+   return offs;
+}
+
+int32_t DefaultRtCallHandler::uarray_len(UArray *uarray, int dim)
+{
+   return uarray->length(dim);
+}
+
+unsigned UArray::length(int dim) const
+{
+   if (dir_mask & (1 << dim))
+      return MAX(0, dims[dim].left - dims[dim].right);
+   else
+      return MAX(0, dims[dim].right - dims[dim].left);
 }

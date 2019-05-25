@@ -14,7 +14,7 @@ namespace {
       const char    *message;
    };
 
-   class UnitTestRtCall : public RtCallHandler {
+   class UnitTestRtCall : public DefaultRtCallHandler {
    public:
       ~UnitTestRtCall();
 
@@ -45,7 +45,7 @@ void UnitTestRtCall::report(rt_severity_t severity, const char *message,
                             size_t length)
 {
    if (expect_report_.empty()) {
-      color_printf("$bold$$magenta$%*s$$\n", (int)length, message);
+      color_printf("$bold$$magenta$%.*s$$\n", (int)length, message);
    }
    else {
       BufferPrinter tmp;
@@ -180,10 +180,10 @@ START_TEST(test_uarray_sum)
    int datap = Interpreter::STACK_SIZE;
    interp.set_reg(0, datap);
    for (int i = 0; i < 10; i++)
-      interp.mem_wr(0, 4 * i) = 1;
+      interp.mem_wr(0, 4 * i) = i;
 
-   interp.push(0);         // Right
-   interp.push(0);         // Left
+   interp.push(10);        // Right
+   interp.push(2);         // Left
    interp.push(RANGE_TO);  // Direction
    interp.push(datap);     // Data pointer
 
@@ -199,8 +199,24 @@ START_TEST(test_report)
    UnitTestRtCall rtcall;
    rtcall.expect_report({ SEVERITY_NOTE, "Hello, World!" });
 
-   Interpreter interp(&rtcall);
+   Interpreter interp(rtcall);
    Bytecode *b = compile(InterpMachine::get(), unit);
+   interp.run(b);
+}
+END_TEST
+
+START_TEST(test_print_int)
+{
+   vcode_unit_t unit = vcode_find_unit(ident_new("BC.FUNCTIONS.PRINT_INT(I)"));
+   ck_assert_ptr_nonnull(unit);
+
+   UnitTestRtCall rtcall;
+   //rtcall.expect_report({ SEVERITY_NOTE, "Hello, World!" });
+
+   Interpreter interp(rtcall);
+   Bytecode *b = compile(InterpMachine::get(), unit);
+
+   interp.set_reg(0, 5);
    interp.run(b);
 }
 END_TEST
@@ -219,7 +235,8 @@ extern "C" Suite *get_interp_tests(void)
    tcase_add_test(tc_vhdl, test_uarray_len);
    tcase_add_test(tc_vhdl, test_uarray_get);
    tcase_add_test(tc_vhdl, test_report);
-   //tcase_add_test(tc_vhdl, test_uarray_sum);
+   tcase_add_test(tc_vhdl, test_print_int);
+   //   tcase_add_test(tc_vhdl, test_uarray_sum);
    suite_add_tcase(s, tc_vhdl);
 
    return s;

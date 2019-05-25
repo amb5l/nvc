@@ -21,17 +21,45 @@
 #include "util/crashdump.hpp"
 #include "util/bitmask.hpp"
 #include "bytecode.hpp"
+#include "rt/heap.hpp"
+
+struct UArray {
+   Heap::Offset data_offset;
+   uint32_t     dir_mask;
+   struct {
+      int32_t left;
+      int32_t right;
+   } dims[1];
+
+   unsigned length(int dim) const;
+   //void *data(Heap *heap) const
+
+} __attribute__((packed));
+
+static_assert(sizeof(UArray) == 16, "uarray wrong size");
 
 struct RtCallHandler {
    virtual ~RtCallHandler() {}
 
    virtual void report(rt_severity_t severity, const char *message,
                        size_t length) = 0;
+   virtual Heap::Offset image(Heap& heap, int64_t value) = 0;
+   virtual int32_t uarray_len(UArray *uarray, int dim) = 0;
 };
 
-class Interpreter : CrashHandler, RtCallHandler {
+class DefaultRtCallHandler : public RtCallHandler {
 public:
-   explicit Interpreter(RtCallHandler *handler=nullptr);
+   void report(rt_severity_t severity, const char *message,
+               size_t length) override;
+   Heap::Offset image(Heap& heap, int64_t value) override;
+   int32_t uarray_len(UArray *uarray, int dim) override;
+
+   static DefaultRtCallHandler& get();
+};
+
+class Interpreter : CrashHandler {
+public:
+   explicit Interpreter(RtCallHandler& handler=DefaultRtCallHandler::get());
 
    typedef int32_t reg_t;
 
@@ -54,8 +82,6 @@ private:
    Interpreter(Interpreter&&) = delete;
 
    void on_crash() override;
-   void report(rt_severity_t severity, const char *message,
-               size_t length) override;
 
    inline Bytecode::OpCode opcode();
    inline uint8_t reg();

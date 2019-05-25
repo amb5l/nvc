@@ -474,10 +474,35 @@ START_TEST(test_compile_hello)
    vcode_unit_t unit = vcode_find_unit(ident_new("BC.FUNCTIONS.HELLO"));
    fail_if(nullptr == unit);
 
-   vcode_select_unit(unit);
-
    Bytecode *b = compile(InterpMachine::get(), unit);
    fail_if(nullptr == b);
+
+   check_bytecodes(b, {
+         Bytecode::ENTER, 4, 0,
+         Bytecode::RELDATA, _, 0, 0,
+         Bytecode::STR, _, _, _, _,   // Pointless
+         Bytecode::MOVB, 0, SEVERITY_NOTE,
+         Bytecode::LDR, 1, _, _, _,   // Unspilling store above
+         Bytecode::MOVB, 2, 13,
+         Bytecode::RTCALL, Bytecode::RT_REPORT,
+         Bytecode::LEAVE,
+         Bytecode::RET,
+      });
+
+   delete b;
+}
+END_TEST
+
+START_TEST(test_compile_print_int)
+{
+   vcode_unit_t unit = vcode_find_unit(ident_new("BC.FUNCTIONS.PRINT_INT(I)"));
+   ck_assert_ptr_nonnull(unit);
+
+   vcode_select_unit(unit);
+   vcode_dump();
+
+   Bytecode *b = compile(InterpMachine::get(), unit);
+   ck_assert_ptr_nonnull(b);
 
    check_bytecodes(b, {
          Bytecode::ENTER, 4, 0,

@@ -111,7 +111,7 @@ void Printer::append(const char *str)
 
 void Printer::append(const char *str, size_t len)
 {
-   print("%*s", (int)len, str);
+   print("%.*s", (int)len, str);
 }
 
 void Printer::append(char ch)
