@@ -50,6 +50,7 @@ private:
    void elab_stmts(tree_t unit, const Context &context);
    void elab_decls(tree_t tree, const Context& context);
    void elab_signal(tree_t decl, const Context& context);
+   void elab_port_map(tree_t instance, tree_t entity);
    void push_scope(tree_t unit, const Context &context);
    void pop_scope();
    tree_t elab_copy(tree_t t);
@@ -354,6 +355,11 @@ tree_t Elaborator::elab_copy(tree_t t)
    return copy;
 }
 
+void Elaborator::elab_port_map(tree_t instance, tree_t entity)
+{
+
+}
+
 void Elaborator::elab_instance(tree_t inst, const Context& context)
 {
    lib_t new_lib = NULL;
@@ -399,6 +405,9 @@ void Elaborator::elab_instance(tree_t inst, const Context& context)
    };
 
    tree_t entity = tree_ref(arch);
+
+   push_scope(entity, context);
+
    //elab_copy_context(entity, &new_ctx);
    //elab_decls(entity, &new_ctx);
 
@@ -410,10 +419,11 @@ void Elaborator::elab_instance(tree_t inst, const Context& context)
    bounds_check(arch);
    clear_hint();
 
-   if (eval_errors() > 0 || bounds_errors() > 0)
-      return;
+   if (eval_errors() == 0 && bounds_errors() == 0) {
+      elab_arch(arch, new_ctx);
+   }
 
-   elab_arch(arch, new_ctx);
+   pop_scope();
 }
 
 void Elaborator::elab_stmts(tree_t unit, const Context& context)
@@ -522,10 +532,8 @@ void Elaborator::elab_arch(tree_t arch, const Context& context)
    //elab_pseudo_context(context.out, t);
    //elab_pseudo_context(ctx->out, tree_ref(t));
    //elab_copy_context(t, ctx);
-   push_scope(arch, context);
    elab_decls(arch, context);
    elab_stmts(arch, context);
-   pop_scope();
 
    //tree_rewrite(t, fixup_entity_refs, t);
 
@@ -541,6 +549,15 @@ void Elaborator::elab_entity_arch(tree_t entity, tree_t arch,
                           simple_name(istr(tree_ident(arch))));
    ident_t npath = hpathf(context.path, ':', ":%s", name);
 
+   Context new_context = {
+      .library  = context.library,
+      .path     = npath,
+      .inst     = ninst,
+      .arch     = arch
+   };
+
+   push_scope(entity, new_context);
+
    //elab_top_level_ports(arch, context);
    //elab_top_level_generics(arch, context);
 
@@ -553,16 +570,11 @@ void Elaborator::elab_entity_arch(tree_t entity, tree_t arch,
    simplify(arch, EVAL_LOWER);
    bounds_check(arch);
 
-   if (bounds_errors() > 0 || eval_errors() > 0)
-      return;
+   if (bounds_errors() == 0 && eval_errors() == 0) {
+      elab_arch(arch, new_context);
+   }
 
-   Context new_context = {
-      .library  = context.library,
-      .path     = npath,
-      .inst     = ninst,
-      .arch     = arch
-   };
-   elab_arch(arch, new_context);
+   pop_scope();
 }
 
 void Elaborator::elaborate(tree_t unit)
