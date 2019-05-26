@@ -16,6 +16,7 @@
 //
 
 #include "util/array.hpp"
+#include "util/stacktrace.hpp"
 #include "test_util.h"
 
 START_TEST(test_array1)
@@ -42,13 +43,94 @@ START_TEST(test_array1)
 }
 END_TEST
 
+START_TEST(test_array2)
+{
+   static int copies = 0, moves = 0, assigns = 0;
+   static int constructs = 0, destructs = 0;
+
+   struct Counter {
+      Counter() { constructs++; }
+      Counter(const Counter&) { copies++; }
+      Counter(Counter&&) { moves++; }
+      ~Counter() { destructs++; }
+
+      Counter& operator=(const Counter&) { assigns++; return *this; }
+   };
+
+   {
+      ArrayList<Counter> list;
+
+      list.add(Counter()).add(Counter());
+
+      ck_assert_int_eq(2, constructs);
+      ck_assert_int_eq(2, destructs);
+      ck_assert_int_eq(0, copies);
+      ck_assert_int_eq(2, moves);
+      ck_assert_int_eq(0, assigns);
+
+      for (const Counter& c: list)
+         (void)c;
+
+      ck_assert_int_eq(2, constructs);
+      ck_assert_int_eq(2, destructs);
+      ck_assert_int_eq(0, copies);
+      ck_assert_int_eq(2, moves);
+      ck_assert_int_eq(0, assigns);
+
+      for (int i = 0; i < 20; i++)
+         list.add(Counter());
+
+      ck_assert_int_eq(22, constructs);
+      ck_assert_int_eq(38, destructs);
+      ck_assert_int_eq(0, copies);
+      ck_assert_int_eq(38, moves);
+      ck_assert_int_eq(0, assigns);
+   }
+
+   ck_assert_int_eq(60, destructs);
+}
+END_TEST
+
+static int test_two_line, test_one_line;
+
+__attribute__((noinline))
+FrameList trace_test_two()
+{
+   test_two_line = __LINE__; return stack_trace();
+}
+
+__attribute__((noinline))
+FrameList trace_test_one()
+{
+   test_one_line = __LINE__; return trace_test_two();
+}
+
+START_TEST(test_trace1)
+{
+   FrameList result = trace_test_one();
+
+   ck_assert_int_ge(result.size(), 3);
+   ck_assert_str_eq("trace_test_two()", result[0].symbol());
+   ck_assert_str_eq("trace_test_one()", result[1].symbol());
+   ck_assert_str_eq("main", result[result.size() - 1].symbol());
+
+   ck_assert_int_eq(test_two_line, result[0].line());
+   ck_assert_int_eq(test_one_line, result[1].line());
+}
+END_TEST
+
 extern "C" Suite *get_util_tests(void)
 {
    Suite *s = suite_create("util");
 
-   TCase *tc = nvc_unit_test("array");
-   tcase_add_test(tc, test_array1);
-   suite_add_tcase(s, tc);
+   TCase *tc_array = nvc_unit_test("array");
+   tcase_add_test(tc_array, test_array1);
+   tcase_add_test(tc_array, test_array2);
+   suite_add_tcase(s, tc_array);
+
+   TCase *tc_trace = nvc_unit_test("stacktrace");
+   tcase_add_test(tc_trace, test_trace1);
+   suite_add_tcase(s, tc_trace);
 
    return s;
 }

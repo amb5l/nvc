@@ -40,6 +40,7 @@ lib_src = files(
   'util/bitmask.cpp',
   'util/crashdump.cpp',
   'util/printer.cpp',
+  'util/stacktrace.cpp',
   'vcode.c',
 )
 

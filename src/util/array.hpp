@@ -20,14 +20,19 @@
 #include "util.h"
 
 #include <cassert>
+#include <cstdlib>
+#include <new>
 
 template <typename T>
 class ArrayList {
 public:
    ArrayList();
+   ArrayList(const ArrayList&) = delete;
+   ArrayList(ArrayList&&);
    ~ArrayList();
 
    ArrayList<T>& add(const T& item);
+   ArrayList<T>& add(T&& item);
    unsigned size() const { return count_; }
 
    T& get(unsigned n);
@@ -73,6 +78,8 @@ public:
 private:
    static const unsigned DEFAULT_SIZE = 16;
 
+   void ensure_capacity(unsigned how_many);
+
    T        *items_;
    unsigned  max_ = DEFAULT_SIZE;
    unsigned  count_ = 0;
@@ -81,31 +88,57 @@ private:
 template <typename T>
 ArrayList<T>::ArrayList()
 {
-   items_ = new T[max_];
+   items_ = (T*)xmalloc(max_ * sizeof(T));
+}
+
+template <typename T>
+ArrayList<T>::ArrayList(ArrayList&& other)
+{
+   assert(false);
 }
 
 template <typename T>
 ArrayList<T>::~ArrayList()
 {
-   delete[] items_;
+   for (unsigned i = 0; i < count_; i++)
+      items_[i].~T();
+
+   free(items_);
+}
+
+template <typename T>
+void ArrayList<T>::ensure_capacity(unsigned how_many)
+{
+   if (unlikely(count_ + how_many > max_)) {
+      max_ = (max_ * 3) / 2;
+
+      T *tmp = (T*)xmalloc(max_ * sizeof(T));
+
+      for (unsigned i = 0; i < count_; i++) {
+         new (&(tmp[i])) T(std::move(items_[i]));
+         items_[i].~T();
+      }
+
+      free(items_);
+      items_ = tmp;
+   }
 }
 
 template <typename T>
 ArrayList<T>& ArrayList<T>::add(const T& item)
 {
-   if (unlikely(count_ == max_)) {
-      max_ = (max_ * 3) / 2;
+   ensure_capacity(1);
 
-      T *tmp = new T[max_];
+   new (&(items_[count_++])) T(item);
+   return *this;
+}
 
-      for (unsigned i = 0; i < count_; i++)
-         tmp[i] = items_[i];
+template <typename T>
+ArrayList<T>& ArrayList<T>::add(T&& item)
+{
+   ensure_capacity(1);
 
-      delete[] items_;
-      items_ = tmp;
-   }
-
-   items_[count_++] = item;
+   new (&(items_[count_++])) T(std::move(item));
    return *this;
 }
 

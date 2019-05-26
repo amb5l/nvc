@@ -313,6 +313,9 @@ void *xrealloc(void *ptr, size_t size)
 
 char *xstrdup(const char *str)
 {
+   if (str == NULL)
+      return NULL;
+
    char *copy = strdup(str);
    if (copy == NULL)
       fatal("memory exhausted (strdup %p)", str);
