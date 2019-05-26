@@ -38,6 +38,8 @@ public:
    virtual void append(const char *str, size_t len);
    virtual void append(char ch);
 
+   void repeat(char ch, int times);
+
 protected:
    static void filter_color(const char *str, Printer& out, bool want_color);
    static bool has_color_escape(const char *str);

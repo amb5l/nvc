@@ -23,6 +23,8 @@ BEGIN_C_HEADER
          _parse_and_check(array, ARRAY_LEN(array), true, true);    \
       })
 
+#define ck_assert_ident_eq(str, ident) ck_assert_str_eq(str, istr(ident))
+
 typedef struct {
    int        line;
    const char *snippet;

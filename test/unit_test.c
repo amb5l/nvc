@@ -62,6 +62,7 @@ int main(int argc, char **argv)
 
    int nfail = 0;
    nfail += RUN_TESTS(ident);
+   nfail += RUN_TESTS(util);
    nfail += RUN_TESTS(hash);
    nfail += RUN_TESTS(heap);
    nfail += RUN_TESTS(bitmask);
@@ -77,6 +78,7 @@ int main(int argc, char **argv)
    nfail += RUN_TESTS(elab);
    nfail += RUN_TESTS(bytecode);
    nfail += RUN_TESTS(interp);
+   nfail += RUN_TESTS(elaborate);
 
    return nfail == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

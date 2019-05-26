@@ -1283,7 +1283,7 @@ void register_gdb_signal_handlers(void)
 
 void term_init(void)
 {
-   const char *nvc_no_color = getenv("NVC_NO_COLOR");
+   const char *nvc_color = getenv("NVC_COLOR");
    const char *term = getenv("TERM");
 
    static const char *term_blacklist[] = {
@@ -1310,7 +1310,10 @@ void term_init(void)
    }
 #endif
 
-   want_color = is_tty && (nvc_no_color == NULL);
+   want_color = is_tty;
+
+   if (nvc_color != NULL && strcmp(nvc_color, "no") == 0)
+      want_color = false;
 
    if (want_color && (term != NULL)) {
       for (size_t i = 0; i < ARRAY_LEN(term_blacklist); i++) {
@@ -1330,6 +1333,9 @@ void term_init(void)
          want_color = false;
    }
 #endif
+
+   if (nvc_color != NULL && strcmp(nvc_color, "yes") == 0)
+      want_color = true;
 }
 
 static void opt_set_generic(const char *name, option_kind_t kind,

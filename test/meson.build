@@ -3,6 +3,7 @@ test_src = files(
   'test_bounds.c',
   'test_bytecode.cpp',
   'test_elab.c',
+  'test_elaborate.cpp',
   'test_group.c',
   'test_hash.c',
   'test_heap.c',
@@ -15,6 +16,7 @@ test_src = files(
   'test_sem.c',
   'test_simp.c',
   'test_util.c',
+  'test_util.cpp',
   'test_value.c',
   'unit_test.c',
 )

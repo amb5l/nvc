@@ -104,6 +104,12 @@ void Printer::filter_color(const char *str, Printer& out, bool want_color)
       out.append(escape_start);
 }
 
+void Printer::repeat(char ch, int times)
+{
+   for (int i = 0; i < times; i++)
+      append(ch);
+}
+
 void Printer::append(const char *str)
 {
    print("%s", str);
@@ -195,7 +201,7 @@ bool TerminalPrinter::detect_terminal(int fno)
    if (saved[fno] != -1)
       return saved[fno];
 
-   const char *nvc_no_color = getenv("NVC_NO_COLOR");
+   const char *nvc_color = getenv("NVC_COLOR");
    const char *term = getenv("TERM");
 
    static const char *term_blacklist[] = {
@@ -222,7 +228,10 @@ bool TerminalPrinter::detect_terminal(int fno)
    }
 #endif
 
-   bool want_color = is_tty && (nvc_no_color == nullptr);
+   bool want_color = is_tty;
+
+   if (nvc_color != nullptr && strcmp(nvc_color, "no") == 0)
+      want_color = false;
 
    if (want_color && (term != nullptr)) {
       for (size_t i = 0; i < ARRAY_LEN(term_blacklist); i++) {
@@ -242,6 +251,9 @@ bool TerminalPrinter::detect_terminal(int fno)
          want_color = false;
    }
 #endif
+
+   if (nvc_color != nullptr && strcmp(nvc_color, "yes") == 0)
+      want_color = true;
 
    return (saved[fno] = want_color);
 }

@@ -103,9 +103,13 @@ END_C_HEADER
 
 class Machine;
 class Bytecode;
+class TopLevel;
 
 // Compile vcode unit to byte code
 Bytecode *compile(const Machine& m, vcode_unit_t unit);
+
+// Elaborate a top level entity
+TopLevel *elaborate(tree_t top);
 
 #endif  // __cplusplus
 

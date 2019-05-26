@@ -23,6 +23,8 @@
 #include "ident.h"
 #include "prim.h"
 
+BEGIN_C_HEADER
+
 typedef enum type_kind {
    T_UNRESOLVED,
    T_SUBTYPE,
@@ -151,5 +153,7 @@ type_kind_t type_base_kind(type_t t);
 // Helper function to find number of sub-elemets
 unsigned type_width(type_t type);
 bool type_known_width(type_t type);
+
+END_C_HEADER
 
 #endif  // _TYPE_H
