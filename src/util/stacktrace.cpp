@@ -196,39 +196,8 @@ static _Unwind_Reason_Code libdw_trace_iter(struct _Unwind_Context* ctx,
       kind = Frame::CXX;
    }
 
-   color_printf("[$green$%p$$] ", (void *)ip);
-   if (mod != home)
-      color_printf("($red$%s$$) ", module_name);
-   if (srcfile != NULL)
-      color_printf("%s:%d ", srcfile, line);
-   if (sym_name != NULL)
-      color_printf("$yellow$%s$$", sym_name);
-   printf("\n");
-
-   params->frames->add(Frame(kind, sym_name, srcfile, line, ip, module_name));
-
-#if 0
-   FILE *f = fopen(srcfile, "r");
-   if (f != NULL) {
-      char buf[TRACE_MAX_LINE];
-      for (int i = 0; i < line + 1 && fgets(buf, sizeof(buf), f); i++) {
-         if (i < line - 2)
-            continue;
-
-         const size_t len = strlen(buf);
-         if (len <= 1)
-            continue;
-         else if (buf[len - 1] == '\n')
-            buf[len - 1] = '\0';
-
-         if (i == line - 1)
-            color_printf("$cyan$$bold$-->$$ $cyan$%s$$\n", buf);
-         else
-            color_printf("    $cyan$%s$$\n", buf);
-      }
-      fclose(f);
-   }
-#endif
+   params->frames->add(Frame(kind, sym_name, srcfile, line, ip,
+                             mod == home ? nullptr : module_name));
 
    if (sym_name != NULL && strcmp(sym_name, "main") == 0)
       return _URC_NORMAL_STOP;

@@ -17,6 +17,7 @@
 
 #include "util/array.hpp"
 #include "util/stacktrace.hpp"
+#include "util/hash.hpp"
 #include "test_util.h"
 
 START_TEST(test_array1)
@@ -119,6 +120,45 @@ START_TEST(test_trace1)
 }
 END_TEST
 
+START_TEST(test_hash_basic)
+{
+   HashMap<int, int> h(8);
+
+   h.put(1516, 6);
+   h.put(151670, 4);
+   h.put(61, 1);
+
+   fail_unless(h.get(1516) == 6);
+   fail_unless(h.get(151670) == 4);
+   fail_unless(h.get(61) == 1);
+
+   ck_assert_int_eq(0, h.get(55));
+}
+END_TEST;
+
+START_TEST(test_hash_rand)
+{
+   static const int N = 1024;
+
+   HashMap<int, int> h;
+   int keys[N];
+   int values[N];
+
+   for (int i = 0; i < N; i++) {
+      do {
+         keys[i] = ((i << 16) | (rand() & 0xffff));
+      } while (keys[i] == 0);
+      values[i] = rand();
+   }
+
+   for (int i = 0; i < N; i++)
+      h.put(keys[i], values[i]);
+
+   for (int i = 0; i < N; i++)
+      fail_unless(h.get(keys[i]) == values[i]);
+}
+END_TEST;
+
 extern "C" Suite *get_util_tests(void)
 {
    Suite *s = suite_create("util");
@@ -130,6 +170,11 @@ extern "C" Suite *get_util_tests(void)
 
    TCase *tc_trace = nvc_unit_test("stacktrace");
    tcase_add_test(tc_trace, test_trace1);
+   suite_add_tcase(s, tc_trace);
+
+   TCase *tc_hash = nvc_unit_test("hash");
+   tcase_add_test(tc_hash, test_hash_basic);
+   tcase_add_test(tc_hash, test_hash_rand);
    suite_add_tcase(s, tc_trace);
 
    return s;

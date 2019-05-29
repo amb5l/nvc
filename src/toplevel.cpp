@@ -22,6 +22,7 @@
 template class ArrayList<Scope *>;
 template class ArrayList<Net *>;
 template class ArrayList<Signal *>;
+template class ArrayList<Process *>;
 
 Scope::Scope(Scope *parent, ident_t name)
    : parent_(parent),
@@ -39,6 +40,9 @@ void Scope::print(Printer& printer, int indent) const
    for (Signal *signal : signals_)
       signal->print(printer, indent + 2);
 
+   for (Process *process : processes_)
+      process->print(printer, indent + 2);
+
    for (Scope *child : children_)
       child->print(printer, indent + 2);
 }
@@ -46,6 +50,16 @@ void Scope::print(Printer& printer, int indent) const
 void Scope::link_to(Scope *child)
 {
    children_.add(child);
+}
+
+Signal *Scope::find_signal(ident_t name) const
+{
+   for (Signal *s : signals_) {
+      if (s->name() == name)
+         return s;
+   }
+
+   should_not_reach_here("cannot find signal %s", istr(name));
 }
 
 void TopLevel::print(Printer&& printer) const
@@ -82,4 +96,19 @@ Net::Net(netid_t nid, unsigned nnets, unsigned size)
      size_(size)
 {
 
+}
+
+Process::Process(ident_t name, Flags flags)
+   : name_(name),
+     flags_(flags)
+{
+
+}
+
+void Process::print(Printer& printer, int indent) const
+{
+   printer.repeat(' ', indent);
+   printer.color_print("$bold$$magenta$process$$ %s", istr(name_));
+
+   printer.print("\n");
 }

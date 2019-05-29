@@ -25,6 +25,7 @@
 class Scope;
 class Net;
 class Signal;
+class Process;
 
 typedef ArrayList<Scope *> ScopeList;
 extern template class ArrayList<Scope *>;
@@ -34,6 +35,9 @@ extern template class ArrayList<Signal *>;
 
 typedef ArrayList<Net *> NetList;
 extern template class ArrayList<Net *>;
+
+typedef ArrayList<Process *> ProcessList;
+extern template class ArrayList<Process *>;
 
 class TopLevel {
    friend class Elaborator;
@@ -57,16 +61,38 @@ public:
    ident_t name() const { return name_; }
    const ScopeList& children() const { return children_; }
    const SignalList& signals() const { return signals_; }
+   const ProcessList& processes() const { return processes_; }
 
    void print(Printer& printer, int indent=0) const;
+   Signal *find_signal(ident_t name) const;
 
 private:
    void link_to(Scope *child);
 
-   Scope      *parent_;
-   ident_t     name_;
-   ScopeList   children_;
-   SignalList  signals_;
+   Scope       *parent_;
+   ident_t      name_;
+   ScopeList    children_;
+   SignalList   signals_;
+   ProcessList  processes_;
+};
+
+class Process {
+   friend class Elaborator;
+public:
+   enum Flags : uint32_t {
+      P_POSTPONED = 1 << 0,
+   };
+
+   Process(ident_t name, Flags flags);
+
+   ident_t name() const { return name_; }
+   Flags flags() const { return flags_; }
+
+   void print(Printer& printer, int indent=0) const;
+
+private:
+   ident_t name_;
+   Flags   flags_;
 };
 
 class Signal {

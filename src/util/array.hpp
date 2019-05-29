@@ -86,6 +86,26 @@ private:
 };
 
 template <typename T>
+class FixedArray {
+public:
+   explicit FixedArray(unsigned size);
+   FixedArray(const FixedArray&) = delete;
+   FixedArray(FixedArray&&) = delete;
+   ~FixedArray();
+
+   T& get(unsigned index);
+
+   T& operator[](unsigned index) { return get(index); }
+
+private:
+   T        *items_;
+   unsigned  size_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// ArrayList
+
+template <typename T>
 ArrayList<T>::ArrayList()
 {
    items_ = (T*)xmalloc(max_ * sizeof(T));
@@ -218,4 +238,27 @@ ArrayList<T>::ConstIterator::ConstIterator(const ArrayList<T> *owner, int index)
    : owner_(owner),
      index_(index)
 {
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// FixedArray
+
+template <typename T>
+FixedArray<T>::FixedArray(unsigned size)
+   : size_(size)
+{
+   items_ = new T[size];
+}
+
+template <typename T>
+FixedArray<T>::~FixedArray()
+{
+   delete[] items_;
+}
+
+template <typename T>
+T& FixedArray<T>::get(unsigned index)
+{
+   assert(index < size_);
+   return items_[index];
 }

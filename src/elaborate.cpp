@@ -19,6 +19,8 @@
 #include "phase.h"
 #include "lib.h"
 #include "common.h"
+#include "util/bitmask.hpp"
+#include "util/hash.hpp"
 
 #include <cassert>
 #include <cctype>
@@ -50,7 +52,8 @@ private:
    void elab_stmts(tree_t unit, const Context &context);
    void elab_decls(tree_t tree, const Context& context);
    void elab_signal(tree_t decl, const Context& context);
-   void elab_port_map(tree_t instance, tree_t entity);
+   void elab_port_map(tree_t inst, tree_t entity);
+   void elab_process(tree_t proc, const Context& context);
    void push_scope(tree_t unit, const Context &context);
    void pop_scope();
    tree_t elab_copy(tree_t t);
@@ -355,9 +358,81 @@ tree_t Elaborator::elab_copy(tree_t t)
    return copy;
 }
 
-void Elaborator::elab_port_map(tree_t instance, tree_t entity)
+void Elaborator::elab_port_map(tree_t inst, tree_t entity)
 {
+   const int nformals = tree_ports(entity);
+   const int nactuals = tree_params(inst);
 
+   FixedArray<Signal *> formals(nformals);
+
+   for (int i = 0; i < nformals; i++) {
+      tree_t port = tree_port(entity, i);
+
+      Signal *s = new Signal(tree_ident(port));
+      scope_->signals_.add(s);
+
+      formals[i] = s;
+   }
+
+   Bitmask have_formals(nformals);
+
+   for (int i = 0; i < nactuals; i++) {
+      tree_t p = tree_param(inst, i);
+      Signal *formal = nullptr;
+
+      switch (tree_subkind(p)) {
+      case P_POS:
+         {
+            const int pos = tree_pos(p);
+            formal = formals[pos];
+            have_formals.set(pos);
+         }
+         break;
+      case P_NAMED:
+         {
+#if 0
+            ident_t name = elab_formal_name(tree_name(p));
+            for (int j = 0; j < nformals; j++) {
+               tree_t port = tree_F(unit, j);
+               if (tree_ident(port) == name) {
+                  formal = port;
+                  have_formals[j] = true;
+                  break;
+               }
+            }
+#endif
+            assert(false);
+         }
+         break;
+      default:
+         should_not_reach_here("unexpected subkind");
+      }
+      assert(formal != nullptr);
+
+      assert(tree_kind(tree_value(p)) == T_REF);
+
+      Signal *actual = scope_->parent()->find_signal(tree_ident(tree_value(p)));
+
+      formal->nets_.add(actual->nets_[0]);
+   }
+
+   // Assign default values
+#if 0
+   for (unsigned i = 0; i < nformals; i++) {
+      if (have_formals.is_clar(i)) {
+         tree_t f = tree_F(unit, i);
+
+         rwitems[count].kind = RW_TREE;
+         rwitems[count].formal = f;
+         if (tree_has_value(f))
+            rwitems[count].actual = tree_value(f);
+         else
+            rwitems[count].actual = elab_open_value(f);
+
+         count++;
+      }
+   }
+#endif
 }
 
 void Elaborator::elab_instance(tree_t inst, const Context& context)
@@ -385,14 +460,6 @@ void Elaborator::elab_instance(tree_t inst, const Context& context)
    if (arch == NULL)
       return;
 
-#if 0
-   map_list_t *maps = elab_map(t, arch, tree_ports, tree_port,
-                               tree_params, tree_param);
-
-   (void)elab_map(t, arch, tree_generics, tree_generic,
-                  tree_genmaps, tree_genmap);
-#endif
-
    ident_t ninst = hpathf(context.inst, '@', "%s(%s)",
                           simple_name(istr(tree_ident2(arch))),
                           simple_name(istr(tree_ident(arch))));
@@ -407,6 +474,16 @@ void Elaborator::elab_instance(tree_t inst, const Context& context)
    tree_t entity = tree_ref(arch);
 
    push_scope(entity, context);
+
+   elab_port_map(inst, tree_ref(arch));
+
+#if 0
+   map_list_t *maps = elab_map(t, arch, tree_ports, tree_port,
+                               tree_params, tree_param);
+
+   (void)elab_map(t, arch, tree_generics, tree_generic,
+                  tree_genmaps, tree_genmap);
+#endif
 
    //elab_copy_context(entity, &new_ctx);
    //elab_decls(entity, &new_ctx);
@@ -424,6 +501,15 @@ void Elaborator::elab_instance(tree_t inst, const Context& context)
    }
 
    pop_scope();
+}
+
+void Elaborator::elab_process(tree_t proc, const Context& context)
+{
+   Process::Flags flags {};
+
+   Process *p = new Process(tree_ident(proc), flags);
+
+   scope_->processes_.add(p);
 }
 
 void Elaborator::elab_stmts(tree_t unit, const Context& context)
@@ -456,7 +542,7 @@ void Elaborator::elab_stmts(tree_t unit, const Context& context)
          //elab_if_generate(s, &new_ctx);
          break;
       case T_PROCESS:
-         //elab_process(s, &new_ctx);
+         elab_process(s, new_ctx);
          break;
       default:
          break;

@@ -7,7 +7,7 @@ end entity;
 architecture test of elab1_bot is
 begin
 
-    process (i) is
+    p1: process (i) is
     begin
         o <= i + 1;
     end process;
@@ -25,5 +25,5 @@ begin
 
     uut: entity work.elab1_bot
         port map ( x, y );
-    
+
 end architecture;

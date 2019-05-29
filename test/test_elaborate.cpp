@@ -46,6 +46,7 @@ START_TEST(test_elab1)
    ck_assert_ident_eq("elab1_top", root->name());
    ck_assert_int_eq(1, root->children().size());
    ck_assert_int_eq(2, root->signals().size());
+   ck_assert_int_eq(0, root->processes().size());
 
    Signal *sx = root->signals()[0];
    ck_assert_ident_eq("X", sx->name());
@@ -61,7 +62,22 @@ START_TEST(test_elab1)
    ck_assert_ptr_nonnull(child);
    ck_assert_ident_eq("uut", child->name());
    ck_assert_int_eq(0, child->children().size());
+   ck_assert_int_eq(1, child->processes().size());
+   ck_assert_int_eq(2, child->signals().size());
 
+   Signal *si = child->signals()[0];
+   ck_assert_ident_eq("I", si->name());
+   ck_assert_int_eq(1, si->nets().size());
+   ck_assert_int_eq(0, si->nets()[0]->nid());
+
+   Signal *so = child->signals()[1];
+   ck_assert_ident_eq("O", so->name());
+   ck_assert_int_eq(1, so->nets().size());
+   ck_assert_int_eq(1, so->nets()[0]->nid());
+
+   Process *p1 = child->processes()[0];
+   ck_assert_ident_eq("P1", p1->name());
+   ck_assert_int_eq(0, p1->flags());
 }
 END_TEST
 
