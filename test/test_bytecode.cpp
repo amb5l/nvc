@@ -41,7 +41,7 @@ static void teardown()
 }
 
 static void check_bytecodes(const Bytecode *b,
-                            const std::vector<CheckBytecode>&& expect)
+                            const std::initializer_list<CheckBytecode>&& expect)
 {
    const uint8_t *p = b->code();
    std::map<int, int> match;

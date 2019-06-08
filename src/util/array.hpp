@@ -27,13 +27,17 @@ template <typename T>
 class ArrayList {
 public:
    ArrayList();
-   ArrayList(const ArrayList&) = delete;
-   ArrayList(ArrayList&&);
+   ArrayList(const ArrayList<T>&) = delete;
+   ArrayList(ArrayList<T>&&);
    ~ArrayList();
 
    ArrayList<T>& add(const T& item);
    ArrayList<T>& add(T&& item);
    unsigned size() const { return count_; }
+   void clear();
+
+   T *data() { return items_; }
+   const T *data() const { return items_; }
 
    T& get(unsigned n);
    const T& get(unsigned n) const;
@@ -112,9 +116,14 @@ ArrayList<T>::ArrayList()
 }
 
 template <typename T>
-ArrayList<T>::ArrayList(ArrayList&& other)
+ArrayList<T>::ArrayList(ArrayList<T>&& other)
+   : items_(other.items_),
+     max_(other.max_),
+     count_(other.count_)
 {
-   assert(false);
+   other.items_ = nullptr;
+   other.max_ = 0;
+   other.count_ = 0;
 }
 
 template <typename T>
@@ -160,6 +169,16 @@ ArrayList<T>& ArrayList<T>::add(T&& item)
 
    new (&(items_[count_++])) T(std::move(item));
    return *this;
+}
+
+template <typename T>
+void ArrayList<T>::clear()
+{
+   for (unsigned i = 0; i < count_; i++) {
+      items_[i].~T();
+   }
+
+   count_ = 0;
 }
 
 template <typename T>

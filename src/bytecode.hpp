@@ -1,4 +1,3 @@
-
 //
 //  Copyright (C) 2019  Nick Gasson
 //
@@ -21,8 +20,8 @@
 #include "util.h"
 #include "vcode.h"
 #include "util/printer.hpp"
+#include "util/array.hpp"
 
-#include <vector>
 #include <map>
 
 class Machine {
@@ -148,7 +147,7 @@ public:
 
    private:
       int bound_ = -1;
-      std::vector<unsigned> patch_list_;
+      ArrayList<unsigned> patch_list_;
    };
 
    class Assembler {
@@ -200,8 +199,8 @@ public:
       Assembler(const Assembler &) = delete;
       Assembler(Assembler &&) = default;
 
-      std::vector<uint8_t> code_;
-      std::vector<uint8_t> data_;
+      ArrayList<uint8_t> code_;
+      ArrayList<uint8_t> data_;
       const Machine machine_;
 
 #if DEBUG
@@ -244,3 +243,6 @@ private:
    std::map<int, char *> comments_;
 #endif
 };
+
+extern template class ArrayList<unsigned>;
+extern template class ArrayList<uint8_t>;

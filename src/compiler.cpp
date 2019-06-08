@@ -21,7 +21,6 @@
 #include "phase.h"
 #include "common.h"
 
-#include <vector>
 #include <map>
 #include <set>
 #include <cassert>
@@ -158,8 +157,8 @@ namespace {
       const Machine                  machine_;
       Bytecode::Assembler            asm_;
       std::map<vcode_var_t, Mapping> var_map_;
-      std::vector<Mapping>           reg_map_;
-      std::vector<Bytecode::Label>   block_map_;
+      ArrayList<Mapping>             reg_map_;
+      ArrayList<Bytecode::Label>     block_map_;
       std::set<Mapping*>             live_;
       Bitmask                        allocated_;
       int                            op_ = -1;
@@ -449,7 +448,7 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
 
    const int nregs = vcode_count_regs();
    for (int i = 0; i < nregs; i++)
-      reg_map_.emplace_back(Mapping(Mapping::TEMP, size_of(vcode_reg_type(i))));
+      reg_map_.add(Mapping(Mapping::TEMP, size_of(vcode_reg_type(i))));
 
    int param_offset = machine_.frame_reserved();
    const int nparams = vcode_count_params();
@@ -522,7 +521,7 @@ Bytecode *Compiler::compile(vcode_unit_t unit)
    __ enter(-local_offset - machine_.word_size());
 
    for (int i = 0; i < nblocks; i++)
-      block_map_.push_back(Bytecode::Label());
+      block_map_.add(Bytecode::Label());
 
    for (int i = 0; i < nblocks; i++) {
       vcode_select_block(i);

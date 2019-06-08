@@ -92,6 +92,23 @@ START_TEST(test_array2)
 }
 END_TEST
 
+START_TEST(test_array_move)
+{
+   ArrayList<int> a1;
+   a1.add(1).add(2).add(3);
+
+   ck_assert_int_eq(3, a1.size());
+
+   ArrayList<int> a2(std::move(a1));
+
+   ck_assert_int_eq(3, a2.size());
+   ck_assert_int_eq(0, a1.size());
+   ck_assert_int_eq(1, a2[0]);
+   ck_assert_int_eq(2, a2[1]);
+   ck_assert_int_eq(3, a2[2]);
+}
+END_TEST
+
 static int test_two_line, test_one_line;
 
 __attribute__((noinline))
@@ -166,6 +183,7 @@ extern "C" Suite *get_util_tests(void)
    TCase *tc_array = nvc_unit_test("array");
    tcase_add_test(tc_array, test_array1);
    tcase_add_test(tc_array, test_array2);
+   tcase_add_test(tc_array, test_array_move);
    suite_add_tcase(s, tc_array);
 
    TCase *tc_trace = nvc_unit_test("stacktrace");

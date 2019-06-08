@@ -24,6 +24,9 @@
 #include <string.h>
 #include <ostream>
 
+template class ArrayList<unsigned>;
+template class ArrayList<uint8_t>;
+
 namespace {
    class Dumper {
    public:
@@ -622,7 +625,8 @@ void Bytecode::Assembler::mul(Register dst, int64_t value)
 
 void Bytecode::Assembler::data(const uint8_t *bytes, size_t len)
 {
-   data_.insert(data_.end(), bytes, bytes + len);
+   for (size_t i = 0; i < len; i++)
+      data_.add(bytes[i]);
 }
 
 void Bytecode::Assembler::enter(uint16_t frame_size)
@@ -660,21 +664,21 @@ void Bytecode::Assembler::emit_reg(Register reg)
 
 void Bytecode::Assembler::emit_u8(uint8_t byte)
 {
-   code_.push_back(byte);
+   code_.add(byte);
 }
 
 void Bytecode::Assembler::emit_i32(int32_t value)
 {
-   code_.push_back(value & 0xff);
-   code_.push_back((value >> 8) & 0xff);
-   code_.push_back((value >> 16) & 0xff);
-   code_.push_back((value >> 24) & 0xff);
+   code_.add(value & 0xff);
+   code_.add((value >> 8) & 0xff);
+   code_.add((value >> 16) & 0xff);
+   code_.add((value >> 24) & 0xff);
 }
 
 void Bytecode::Assembler::emit_i16(int16_t value)
 {
-   code_.push_back(value & 0xff);
-   code_.push_back((value >> 8) & 0xff);
+   code_.add(value & 0xff);
+   code_.add((value >> 8) & 0xff);
 }
 
 void Bytecode::Assembler::bind(Label &label)
@@ -724,7 +728,7 @@ Bytecode::Label::~Label()
 
 void Bytecode::Label::add_patch(unsigned offset)
 {
-   patch_list_.push_back(offset);
+   patch_list_.add(offset);
 }
 
 unsigned Bytecode::Label::target() const
