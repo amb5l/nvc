@@ -43,7 +43,7 @@ struct RtCallHandler {
 
    virtual void report(rt_severity_t severity, const char *message,
                        size_t length) = 0;
-   //virtual Heap::Offset image(Heap& heap, int64_t value) = 0;
+   virtual void image(int64_t value, UArray *result) = 0;
    virtual int32_t uarray_len(UArray *uarray, int dim) = 0;
 };
 
@@ -51,7 +51,7 @@ class DefaultRtCallHandler : public RtCallHandler {
 public:
    void report(rt_severity_t severity, const char *message,
                size_t length) override;
-   //Heap::Offset image(Heap& heap, int64_t value) override;
+   void image(int64_t value, UArray *result) override;
    int32_t uarray_len(UArray *uarray, int dim) override;
 
    static DefaultRtCallHandler& get();

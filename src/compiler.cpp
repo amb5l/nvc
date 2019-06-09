@@ -196,6 +196,8 @@ Bytecode::Register Compiler::alloc_reg(Mapping& m, bool dirty)
    allocated_.set(free);
    live_.insert(&m);
 
+   assert(m.size() <= machine_.word_size());
+
    m.promote(Bytecode::R(free), dirty);
 
    return Bytecode::R(free);
@@ -425,7 +427,12 @@ void Compiler::shuffle_rtcall(std::initializer_list<Mapping*> args)
             break;
          case Mapping::STACK:
             {
-               __ ldr(reg, Bytecode::R(machine_.fp_reg()), arg->stack_slot());
+               if (arg->size() > machine_.word_size()) {
+                  __ lea(reg, __ fp(), arg->stack_slot());
+               }
+               else {
+                  __ ldr(reg, __ fp(), arg->stack_slot());
+               }
             }
             break;
          default:
@@ -642,7 +649,7 @@ void Compiler::compile_unwrap()
 
    Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
 
-   __ ldr(dst, Bytecode::R(machine_.fp_reg()), uarray.stack_slot());
+   __ ldr(dst, __ fp(), uarray.stack_slot());
 }
 
 void Compiler::compile_cast()
@@ -721,7 +728,7 @@ void Compiler::compile_uarray_left()
    Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
 
    const size_t offs = uarray.stack_slot() + machine_.word_size() + 4;
-   __ ldr(dst, Bytecode::R(machine_.fp_reg()), offs + 4 * vcode_get_dim(op_));
+   __ ldr(dst, __ fp(), offs + 4 * vcode_get_dim(op_));
 }
 
 void Compiler::compile_uarray_right()
@@ -733,7 +740,7 @@ void Compiler::compile_uarray_right()
    Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
 
    const size_t offs = uarray.stack_slot() + machine_.word_size() + 8;
-   __ ldr(dst, Bytecode::R(machine_.fp_reg()), offs + 4 * vcode_get_dim(op_));
+   __ ldr(dst, __ fp(), offs + 4 * vcode_get_dim(op_));
 }
 
 void Compiler::compile_uarray_dir()
@@ -745,7 +752,7 @@ void Compiler::compile_uarray_dir()
    Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
 
    const size_t offs = uarray.stack_slot() + machine_.word_size();
-   __ ldr(dst, Bytecode::R(machine_.fp_reg()), offs);
+   __ ldr(dst, __ fp(), offs);
 
    const unsigned dim = vcode_get_dim(op_);
    if (vtype_dims(vcode_reg_type(arg_reg)) > 1) {
@@ -759,13 +766,15 @@ void Compiler::compile_uarray_dir()
 
 void Compiler::compile_uarray_len()
 {
-   vcode_reg_t arg_reg = vcode_get_arg(op_, 0);
-   Mapping& uarray = map_vcode_reg(arg_reg);
+   Mapping& uarray = map_vcode_reg(vcode_get_arg(op_, 0));
    assert(uarray.storage() == Mapping::STACK);
 
-   evict_reg(Bytecode::R(0));
-   __ lea(Bytecode::R(0), Bytecode::R(machine_.fp_reg()), uarray.stack_slot());
+   shuffle_rtcall({ &uarray });
+
    __ rtcall(Bytecode::RT_UARRAY_LEN);
+
+   Mapping& result = map_vcode_reg(vcode_get_result(op_));
+   result.promote(Bytecode::R(0), true);
 }
 
 void Compiler::compile_load_indirect()
@@ -817,14 +826,14 @@ void Compiler::compile_report()
 void Compiler::compile_image()
 {
    Mapping& value = map_vcode_reg(vcode_get_arg(op_, 0));
+   Mapping& result = map_vcode_reg(vcode_get_result(op_));
 
-   shuffle_rtcall({ &value });
+   assert(result.storage() == Mapping::STACK);
+
+   shuffle_rtcall({ &value, &result });
    spill_live();
 
    __ rtcall(Bytecode::RT_IMAGE);
-
-   Bytecode::Register dst = in_reg(map_vcode_reg(vcode_get_result(op_)));
-   __ mov(dst, Bytecode::R(0));
 }
 
 void Compiler::compile_addi(int op)
@@ -865,7 +874,7 @@ void Compiler::compile_store(int op)
    Mapping& dst = map_vcode_var(vcode_get_address(op));
    Mapping& src = map_vcode_reg(vcode_get_arg(op, 0));
 
-   __ str(Bytecode::R(machine_.fp_reg()), dst.stack_slot(), in_reg(src));
+   __ str(__ fp(), dst.stack_slot(), in_reg(src));
 }
 
 void Compiler::compile_load(int op)
@@ -873,7 +882,7 @@ void Compiler::compile_load(int op)
    Mapping& src = map_vcode_var(vcode_get_address(op));
    Mapping& dst = map_vcode_reg(vcode_get_result(op));
 
-   __ ldr(in_reg(dst), Bytecode::R(machine_.fp_reg()), src.stack_slot());
+   __ ldr(in_reg(dst), __ fp(), src.stack_slot());
 }
 
 void Compiler::compile_cmp(int op)

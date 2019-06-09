@@ -155,7 +155,12 @@ void Interpreter::rtcall(Bytecode::RtCall func)
       break;
 
    case Bytecode::RT_IMAGE:
-      //regs_[0] = handler_.image(heap_, regs_[0]);
+      handler_.image(regs_[0], (UArray *)&(mem_wr(1, 0, sizeof(UArray))));
+      break;
+
+   case Bytecode::RT_UARRAY_LEN:
+      regs_[0] = handler_.uarray_len((UArray *)&(mem_rd(0, 0, sizeof(UArray))),
+                                     0 /* XXX */);
       break;
 
    default:
@@ -225,6 +230,13 @@ Interpreter::reg_t Interpreter::run(const Bytecode *code)
          b = reg();
          c = imm16();
          regs_[a] = mem_rd(b, c);
+         break;
+
+      case Bytecode::LEA:
+         a = reg();
+         b = reg();
+         c = imm16();
+         regs_[a] = regs_[b] + c;
          break;
 
       case Bytecode::CMP:
@@ -348,6 +360,8 @@ void Interpreter::on_crash()
 
    if (col % 4 != 0)
       printf("\n");
+
+   printf("\n");
 }
 
 DefaultRtCallHandler& DefaultRtCallHandler::get()
@@ -370,6 +384,14 @@ Heap::Offset DefaultRtCallHandler::image(Heap& heap, int64_t value)
    return offs;
 }
 #endif
+
+void DefaultRtCallHandler::image(int64_t value, UArray *result)
+{
+   result->data_offset = 0;
+   result->dir_mask = 0;
+   result->dims[0].left = 0;
+   result->dims[1].right = 0;
+}
 
 int32_t DefaultRtCallHandler::uarray_len(UArray *uarray, int dim)
 {

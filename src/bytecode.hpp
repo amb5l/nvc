@@ -188,6 +188,7 @@ public:
       void lea(Register dst, Register indirect, int16_t offset);
 
       Register sp() const { return Register{ machine_.sp_reg() }; };
+      Register fp() const { return Register{ machine_.fp_reg() }; };
 
    private:
       void emit_reg(Register reg);

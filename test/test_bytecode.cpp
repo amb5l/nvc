@@ -543,6 +543,7 @@ extern "C" Suite *get_bytecode_tests(void)
    nvc_add_bytecode_fixture(tc_vhdl);
    tcase_add_test(tc_vhdl, test_compile_fact);
    tcase_add_test(tc_vhdl, test_compile_hello);
+   tcase_add_test(tc_vhdl, test_compile_print_int);
    suite_add_tcase(s, tc_vhdl);
 
    return s;
