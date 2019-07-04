@@ -35,6 +35,7 @@ public:
    ArrayList<T>& add(T&& item);
    unsigned size() const { return count_; }
    void clear();
+   void pop();
 
    T *data() { return items_; }
    const T *data() const { return items_; }
@@ -169,6 +170,13 @@ ArrayList<T>& ArrayList<T>::add(T&& item)
 
    new (&(items_[count_++])) T(std::move(item));
    return *this;
+}
+
+template <typename T>
+void ArrayList<T>::pop()
+{
+   assert(count_ > 0);
+   items_[--count_].~T();
 }
 
 template <typename T>

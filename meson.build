@@ -1,7 +1,7 @@
 project('nvc', ['c', 'cpp'],
         default_options : [ 'cpp_std=c++14',
                             'c_std=c11',
-                            'buildtype=debugoptimized'
+                            'buildtype=release'
                           ])
 
 add_project_arguments('-DHAVE_CONFIG_H', language : ['c', 'cpp'])

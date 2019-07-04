@@ -1,5 +1,4 @@
 lib_src = files(
-  'bounds.c',
   'bytecode.cpp',
   'cgen.c',
   'common.c',
@@ -23,6 +22,7 @@ lib_src = files(
   'rt/cover.c',
   'rt/fst.c',
   'rt/heap.c',
+  'rt/heap.cpp',
   'rt/jit.c',
   'rt/lxt.c',
   'rt/lxt.c',
@@ -42,6 +42,7 @@ lib_src = files(
   'util/printer.cpp',
   'util/stacktrace.cpp',
   'vcode.c',
+  'bounds.c',
 )
 
 driver_src = files('nvc.c')
