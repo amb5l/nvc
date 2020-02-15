@@ -44,7 +44,7 @@ int main(int argc, char **argv)
    term_init();
    register_trace_signal_handlers();
 
-   setenv("NVC_LIBPATH", "../lib/std", 1);
+   setenv("NVC_LIBPATH", getenv("MESON_LIB_DIR") ?: "../lib/std", 1);
 
    int nfail = 0;
    nfail += RUN_TESTS(ident);

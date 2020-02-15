@@ -1,0 +1,46 @@
+lib_src = files(
+  'bounds.c',
+  'cgen.c',
+  'common.c',
+  'dump.c',
+  'elab.c',
+  'eval.c',
+  'fbuf.c',
+  'group.c',
+  'hash.c',
+  'ident.c',
+  'json.c',
+  'lib.c',
+  'lower.c',
+  'make.c',
+  'nvc.c',
+  'object.c',
+  'parse.c',
+  'rt/alloc.c',
+  'rt/cover.c',
+  'rt/fst.c',
+  'rt/heap.c',
+  'rt/jit.c',
+  'rt/lxt.c',
+  'rt/lxt.c',
+  'rt/netdb.c',
+  'rt/pprint.c',
+  'rt/rtkern.c',
+  'rt/vcd.c',
+  'rt/wave.c',
+  'sem.c',
+  'simp.c',
+  'tree.c',
+  'type.c',
+  'util.c',
+  'vcode.c',
+)
+
+driver_src = files('nvc.c')
+
+lexer = custom_target('lexer',
+                      input : 'lexer.l',
+                      output : 'lex.yy.c',
+                      command : [flex, '-o', '@OUTPUT@', '@INPUT@'])
+
+src_inc = include_directories('.')

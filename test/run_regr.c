@@ -667,10 +667,12 @@ int main(int argc, char **argv)
    }
 #endif
 
-   setenv("NVC_LIBPATH", "", 1);
-
    char lib_dir[PATH_MAX + 7];
-   snprintf(lib_dir, sizeof(lib_dir), "%s/../lib", bin_dir);
+   const char *meson_lib_dir = getenv("MESON_LIB_DIR");
+   if (meson_lib_dir != NULL)
+      strncpy(lib_dir, meson_lib_dir, sizeof(lib_dir));
+   else
+      snprintf(lib_dir, sizeof(lib_dir), "%s/../lib", bin_dir);
 
    setenv("NVC_IMP_LIB", lib_dir, 1);
    setenv("NVC_LIBPATH", lib_dir, 1);

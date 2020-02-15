@@ -1,0 +1,30 @@
+// -*- mode: c -*-
+
+#mesondefine VERSION
+#mesondefine PACKAGE_VERSION
+#mesondefine PACKAGE_STRING
+#mesondefine PACKAGE_BUGREPORT
+#mesondefine PACKAGE
+#mesondefine PACKAGE_NAME
+#mesondefine LLVM_VERSION
+#mesondefine LLVM_OBJ_EXT
+#mesondefine SYSTEM_CC
+#mesondefine DATADIR
+#mesondefine PC_FROM_UCONTEXT
+#mesondefine TESTDIR
+#mesondefine EXEEXT
+#mesondefine DLL_EXT
+
+#mesondefine HAVE_SYS_PTRACE_H
+#mesondefine HAVE_SYS_SYSCTL_H
+#mesondefine HAVE_INTTYPES_H
+#mesondefine HAVE_EXECINFO_H
+#mesondefine HAVE_LIBDW
+
+#define PACKAGE_BUGREPORT "Nick Gasson <nick@nickg.me.uk>"
+#define PACKAGE_URL "https://github.com/nickg/nvc/"
+#define LLVM_NEW_ATTRIBUTE_API 1
+#define LLVM_HAS_CREATE_TARGET_DATA_LAYOUT 1
+#define LLVM_OBJ_EXT "o"
+#define SYSTEM_CC "/usr/bin/gcc"
+#define PATH_SEP "/"
