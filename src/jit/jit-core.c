@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2018  Nick Gasson
+//  Copyright (C) 2018-2020  Nick Gasson
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -225,7 +225,6 @@ unsigned jit_align_object(size_t size, unsigned ptr)
    return align == size ? 0 : align;
 }
 
-
 static jit_mach_reg_t *jit_alloc_reg(jit_state_t *state, int op,
                                      vcode_reg_t usage)
 {
@@ -274,7 +273,7 @@ static jit_mach_reg_t *jit_alloc_reg(jit_state_t *state, int op,
 bool jit_is_no_op(int op)
 {
    const vcode_op_t kind = vcode_get_op(op);
-   return kind == VCODE_OP_COMMENT || kind == VCODE_OP_DEBUG_INFO;
+   return kind == VCODE_OP_COMMENT;
 }
 
 int jit_next_op(int op)
@@ -334,10 +333,9 @@ static void jit_stack_frame(jit_state_t *state)
 
    const int nvars = vcode_count_vars();
    for (int i = 0; i < nvars; i++) {
-      vcode_var_t var = vcode_var_handle(i);
       jit_vcode_var_t *v = &(state->vcode_vars[i]);
-      v->vcode_var = var;
-      v->size = jit_size_of(vcode_var_type(var));
+      v->vcode_var = i;
+      v->size = jit_size_of(vcode_var_type(i));
       v->state = JIT_STACK;
 
       state->stack_size += jit_align_object(v->size, state->stack_size);
@@ -456,7 +454,6 @@ static void jit_analyse(jit_state_t *state)
          case VCODE_OP_JUMP:
          case VCODE_OP_COMMENT:
          case VCODE_OP_BOUNDS:
-         case VCODE_OP_DEBUG_INFO:
          case VCODE_OP_DYNAMIC_BOUNDS:
             break;
 
@@ -569,7 +566,6 @@ static void jit_map_storage_for_op(jit_state_t *state, int op)
 {
    switch (vcode_get_op(op)) {
    case VCODE_OP_COMMENT:
-   case VCODE_OP_DEBUG_INFO:
    case VCODE_OP_STORE:
    case VCODE_OP_COND:
    case VCODE_OP_JUMP:
@@ -635,8 +631,7 @@ static void jit_map_storage(jit_state_t *state)
 
    const int nvars = vcode_count_vars();
    for (int i = 0; i < nvars; i++) {
-      vcode_var_t var = vcode_var_handle(i);
-      if (vcode_var_type(var) != VCODE_TYPE_INT)
+      if (vcode_var_type(i) != VCODE_TYPE_INT)
          continue;
 
       // TODO: allocate register here

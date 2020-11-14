@@ -76,7 +76,7 @@ START_TEST(test_variables)
    vcode_unit_t unit =
       emit_function(ident_new("variables"), context, vint32);
    vcode_reg_t p1 = emit_param(vint32, vint32, ident_new("p1"));
-   vcode_var_t var = emit_var(vint32, vint32, ident_new("v"), false);
+   vcode_var_t var = emit_var(vint32, vint32, ident_new("v"));
    emit_store(p1, var);
 
    vcode_block_t bb = emit_block();
@@ -103,8 +103,8 @@ START_TEST(test_loop)
 {
    vcode_unit_t unit = emit_function(ident_new("fact"), context, vint32);
    vcode_reg_t p1 = emit_param(vint32, vint32, ident_new("p1"));
-   vcode_var_t ctr = emit_var(vint32, vint32, ident_new("ctr"), false);
-   vcode_var_t result = emit_var(vint32, vint32, ident_new("result"), false);
+   vcode_var_t ctr = emit_var(vint32, vint32, ident_new("ctr"));
+   vcode_var_t result = emit_var(vint32, vint32, ident_new("result"));
    emit_store(emit_const(vint32, 1), ctr);
    emit_store(emit_const(vint32, 1), result);
 

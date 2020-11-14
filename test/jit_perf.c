@@ -36,6 +36,13 @@ static void print_result(const char *name, uint64_t ctime,
           name, cms, lms, lms / cms, jms, jms / lms);
 }
 
+static void check_result(const char *name, int actual, int expect)
+{
+   if (actual != expect) {
+      fatal("%s: got %d expected %d", name, actual, expect);
+   }
+}
+
 static void test_fact(void)
 {
    extern int fact(int);
@@ -50,9 +57,9 @@ static void test_fact(void)
    uint32_t (*lfn)(int) = dlsym(NULL, "JITPERFLIB.JITPERF.FACT(N)N");
    assert(lfn);
 
-   assert((*fn)(4) == 24);
-   assert((*lfn)(4) == 24);
-   assert(fact(4) == 24);
+   check_result("Fact (JIT)", (*fn)(4), 24);
+   check_result("Fact (LLVM)", (*lfn)(4), 24);
+   check_result("Fact (C)", fact(4), 24);
 
    const int REPS = 10000000;
 
@@ -87,7 +94,7 @@ static void test_sum(void)
    int32_t (*jfn)(uarray_t) = jit_vcode_unit(unit);
    assert(jfn);
 
-   int32_t (*lfn)(uarray_t) = dlsym(NULL, func_name);
+   int32_t (*lfn)(uarray_t *) = dlsym(NULL, func_name);
    assert(lfn);
 
    static const int N = 1024;
@@ -103,9 +110,9 @@ static void test_sum(void)
       .dims = { { 0, N - 1, RANGE_TO } }
    };
 
-   assert((*lfn)(input) == expect);
-   assert((*sum)(data, N) == expect);
-   assert((*jfn)(input) == expect);
+   check_result("Sum (LLVM)", (*lfn)(&input), expect);
+   check_result("Sum (C)", (*sum)(data, N), expect);
+   check_result("Sum (JIT)", (*jfn)(input), expect);
 
    uint64_t cstart = get_timestamp_us();
    for (int i = 0; i < REPS; i++)
@@ -114,7 +121,7 @@ static void test_sum(void)
 
    uint64_t lstart = get_timestamp_us();
    for (int i = 0; i < REPS; i++)
-      (*lfn)(input);
+      (*lfn)(&input);
    uint64_t ltime = get_timestamp_us() - lstart;
 
    uint64_t jstart = get_timestamp_us();
@@ -144,6 +151,7 @@ int main(int argc, char **argv)
    opt_set_int("verbose", 0);
    opt_set_int("optimise", 2);
    opt_set_int("dump-llvm", 0);
+   opt_set_int("parse-pragmas", 0);
    intern_strings();
 
    lib_t test = lib_new("JITPERFLIB", "jitperf");

@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2018  Nick Gasson
+//  Copyright (C) 2018-2020  Nick Gasson
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@
 #include <memory.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <signal.h>
 
 #if defined(HAVE_UCONTEXT_H)
 #include <ucontext.h>
@@ -883,7 +884,7 @@ static void jit_op_store(jit_state_t *state, int op)
 {
    vcode_var_t dest = vcode_get_address(op);
 
-   jit_vcode_var_t *v = &(state->vcode_vars[vcode_var_index(dest)]);
+   jit_vcode_var_t *v = &(state->vcode_vars[dest]);
    assert(v->state == JIT_STACK);
 
    jit_vcode_reg_t *src = jit_get_vcode_reg(state, vcode_get_arg(op, 0));
@@ -909,7 +910,7 @@ static void jit_op_load(jit_state_t *state, int op)
 {
    vcode_var_t src = vcode_get_address(op);
 
-   jit_vcode_var_t *v = &(state->vcode_vars[vcode_var_index(src)]);
+   jit_vcode_var_t *v = &(state->vcode_vars[src]);
    assert(v->state == JIT_STACK);
 
    vcode_reg_t result_reg = vcode_get_result(op);
@@ -1177,7 +1178,6 @@ void jit_op(jit_state_t *state, int op)
       jit_op_cond(state, op);
       break;
    case VCODE_OP_COMMENT:
-   case VCODE_OP_DEBUG_INFO:
       return;
    case VCODE_OP_STORE:
       jit_op_store(state, op);

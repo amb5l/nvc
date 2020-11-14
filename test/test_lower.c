@@ -264,7 +264,7 @@ static void check_bb(int bb, const check_bb_t *expect, int len)
                vcode_select_unit(vcode_unit_context());
 
             if (!icmp(vcode_var_name(address), e->name)) {
-               vcode_dump_with_mark(i);
+               vcode_dump_with_mark(i, NULL, NULL);
                fail("expect op %d in block %d to have address %s"
                     " but has %s", i, bb, e->name, istr(vcode_var_name(address)));
             }
