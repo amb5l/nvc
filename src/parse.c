@@ -7087,9 +7087,6 @@ static tree_t p_subprogram_body(tree_t spec)
 
    consume(tBEGIN);
 
-   // Reset label counter since 'subprogram_statement_part' is in new
-   // declarative scope where loop statements can occur.
-   imp_label_cnts.loop = 0;
    p_sequence_of_statements(spec);
 
    consume(tEND);
@@ -7224,9 +7221,6 @@ static void p_process_statement_part(tree_t proc)
 
    BEGIN("process statement part");
 
-   // Reset label counter since 'process_statement_part' is in new
-   // declarative scope where loop statements can occur.
-   imp_label_cnts.loop = 0;
    p_sequence_of_statements(proc);
 }
 

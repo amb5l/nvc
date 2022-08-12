@@ -644,6 +644,21 @@ const void *signal_value(rt_signal_t *s)
    return s->shared.data;
 }
 
+uint32_t signal_size(rt_signal_t *s)
+{
+   return s->shared.size;
+}
+
+const void *signal_last_value(rt_signal_t *s)
+{
+   return s->shared.data + s->shared.size;
+}
+
+ident_t signal_name(rt_signal_t *s)
+{
+   return tree_ident(s->where);
+}
+
 size_t signal_expand(rt_signal_t *s, int offset, uint64_t *buf, size_t max)
 {
    rt_nexus_t *n = &(s->nexus);
@@ -1250,7 +1265,6 @@ static void clone_source(rt_model_t *m, rt_nexus_t *nexus, rt_source_t *old,
    case SOURCE_PORT:
       {
          new->u.port.input = old->u.port.input;
-
          if (old->u.port.conv_func != NULL) {
             new->u.port.conv_func = old->u.port.conv_func;
             new->u.port.conv_func->refcnt++;
@@ -1767,28 +1781,41 @@ static void reset_coverage(rt_model_t *m)
 {
    assert(m->cover == NULL);
 
-   if ((m->cover = cover_read_tags(m->top)) == NULL)
+   fbuf_t *f = cover_open_lib_file(m->top, FBUF_IN, false);
+   if (f == NULL)
       return;
 
-   int32_t n_stmts, n_conds;
-   cover_count_tags(m->cover, &n_stmts, &n_conds);
+   m->cover = cover_read_tags(f);
+
+   int32_t n_stmts, n_branches, n_toggles;
+   cover_count_tags(m->cover, &n_stmts, &n_branches, &n_toggles);
 
    int32_t *cover_stmts = jit_find_symbol(m->jit, ident_new("cover_stmts"));
    if (cover_stmts != NULL)
       memset(cover_stmts, '\0', sizeof(int32_t) * n_stmts);
 
-   int32_t *cover_conds = jit_find_symbol(m->jit, ident_new("cover_conds"));
-   if (cover_conds != NULL)
-      memset(cover_conds, '\0', sizeof(int32_t) * n_conds);
+   int32_t *cover_branches = jit_find_symbol(m->jit, ident_new("cover_branches"));
+   if (cover_branches != NULL)
+      memset(cover_branches, '\0', sizeof(int32_t) * n_branches);
+
+   int32_t *cover_toggles = jit_find_symbol(m->jit, ident_new("cover_toggles"));
+   if (cover_toggles != NULL)
+      memset(cover_toggles, '\0', sizeof(int32_t) * n_toggles);
+   
+   fbuf_close(f, NULL);
 }
 
 static void emit_coverage(rt_model_t *m)
 {
    if (m->cover != NULL) {
-      int32_t *cover_stmts = jit_find_symbol(m->jit, ident_new("cover_stmts"));
-      int32_t *cover_conds = jit_find_symbol(m->jit, ident_new("cover_conds"));
-      if (cover_stmts != NULL)
-         cover_report(m->top, m->cover, cover_stmts, cover_conds);
+      const int32_t *cover_stmts = jit_find_symbol(m->jit, ident_new("cover_stmts"));
+      const int32_t *cover_branches = jit_find_symbol(m->jit, ident_new("cover_branches"));
+      const int32_t *cover_toggles = jit_find_symbol(m->jit, ident_new("cover_toggles"));
+
+      fbuf_t *covdb =  cover_open_lib_file(m->top, FBUF_OUT, true);
+      cover_dump_tags(m->cover, covdb, COV_DUMP_RUNTIME, cover_stmts,
+                      cover_branches, cover_toggles);
+      fbuf_close(covdb, NULL);
    }
 }
 
@@ -1866,7 +1893,6 @@ void model_reset(rt_model_t *m)
    MODEL_ENTRY(m);
 
    // Initialisation is described in LRM 93 section 12.6.4
-
    reset_coverage(m);
    reset_scope(m, m->root);
 
@@ -2474,7 +2500,7 @@ void model_run(rt_model_t *m, uint64_t stop_time)
       return;   // Was error during intialisation
 
    global_event(m, RT_START_OF_SIMULATION);
-
+   
    while (!should_stop_now(m, stop_time))
       model_cycle(m);
 
@@ -3261,4 +3287,11 @@ void *x_mspace_alloc(uint32_t size, uint32_t nelems)
    }
    else
       return mspace_alloc(get_model()->mspace, total);
+}
+
+void x_cover_setup_toggle_cb(sig_shared_t *ss, int32_t *toggle_mask)
+{
+   rt_signal_t *s = container_of(ss, rt_signal_t, shared);
+   rt_model_t *m = get_model();
+   model_set_event_cb(m, s, cover_toggle_event_cb, toggle_mask, false);
 }

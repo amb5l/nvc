@@ -89,5 +89,6 @@ void x_resolve_signal(sig_shared_t *ss, rt_resolution_t *resolution);
 void x_elab_order_fail(tree_t where);
 void x_unreachable(tree_t where);
 void *x_mspace_alloc(uint32_t size, uint32_t nelems);
+void x_cover_setup_toggle_cb(sig_shared_t *ss, int32_t *toggle_mask);
 
 #endif  // _JIT_EXITS_H

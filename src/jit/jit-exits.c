@@ -847,3 +847,9 @@ void *__nvc_mspace_alloc(uint32_t size, uint32_t nelems)
 {
    return x_mspace_alloc(size, nelems);
 }
+
+DLLEXPORT
+void __nvc_setup_toggle_cb(sig_shared_t *ss, int32_t* toggle_mask)
+{
+   x_cover_setup_toggle_cb(ss, toggle_mask);
+}
