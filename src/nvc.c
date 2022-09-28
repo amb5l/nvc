@@ -886,25 +886,22 @@ static int dump_cmd(int argc, char **argv)
 static int coverage(int argc, char **argv)
 {
    static struct option long_options[] = {
-      { "report",      required_argument,       0, 'r' },
-      { "merge",       required_argument,       0, 'm' },
+      { "report", required_argument, 0, 'r' },
+      { "merge",  required_argument, 0, 'm' },
       { 0, 0, 0, 0 }
    };
 
-   char *out_db LOCAL = NULL;
-   char *rpt_file LOCAL = NULL;
-   char *cmd_file LOCAL = NULL;
-
+   const char *out_db = NULL, *rpt_file = NULL;
    int c, index;
-   const char *spec = "Vmr";
+   const char *spec = "V";
 
    while ((c = getopt_long(argc, argv, spec, long_options, &index)) != -1) {
       switch (c) {
       case 'r':
-         rpt_file = xasprintf("%s", optarg);
+         rpt_file = optarg;
          break;
       case 'm':
-         out_db = xasprintf("%s", optarg);
+         out_db = optarg;
          break;
       case 'V':
          opt_set_int(OPT_VERBOSE, 1);
@@ -936,7 +933,7 @@ static int coverage(int argc, char **argv)
 
       fbuf_close(f, NULL);
    }
-   
+
    if (out_db) {
       progress("Saving merged coverage database to: %s", out_db);
       fbuf_t *f = fbuf_open(out_db, FBUF_OUT, FBUF_CS_NONE);
@@ -950,7 +947,7 @@ static int coverage(int argc, char **argv)
    }
 
    return 0;
-} 
+}
 
 static void set_default_opts(void)
 {
