@@ -36,6 +36,7 @@ jobs:
           pacman -U --noconfirm *.zst
       - name: Test OSVVM
         run: |
+          rm -rf lib/*
           mkdir tmp && cd tmp
           tclsh ../contrib/osvvm/test-osvvm.tcl
           unzip ../contrib/osvvm/verified_results.zip
