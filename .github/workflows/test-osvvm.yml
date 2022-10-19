@@ -41,4 +41,5 @@ jobs:
           mkdir tmp && cd tmp
           tclsh ../contrib/osvvm/test-osvvm.tcl
           unzip ../contrib/osvvm/verified_results.zip
-          diff -r results/ verified_results/
+          diff -r -s results/ verified_results/
+
