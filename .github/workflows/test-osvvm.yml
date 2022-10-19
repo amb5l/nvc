@@ -1,7 +1,7 @@
 name: Test OSVVM
 
 on: workflow_dispatch
- 
+
 jobs:
   test-osvvm:
     name: Test OSVVM
@@ -19,7 +19,8 @@ jobs:
           update: true
           install: >-
             base-devel
-            git            
+            git
+            unzip
             mingw-w64-x86_64-tcllib
       - name: Download MSYS2 mingw64 package
         id: download-artifact
@@ -30,7 +31,7 @@ jobs:
           branch: master
           name: MSYS2 mingw64 package
           skip_unpack: false
-          if_no_artifact_found: fail    
+          if_no_artifact_found: fail
       - name: Install NVC
         run: |
           pacman -U --noconfirm *.zst
