@@ -37,6 +37,9 @@ jobs:
           pacman -U --noconfirm *.zst
       - name: Test OSVVM
         run: |
+          : # remove VHDL lib source from NVC repo (issue #557}
+          rm -rf ../lib/*
+          : # install OSVVM, run test, diff results with verified results
           mkdir tmp && cd tmp
           tclsh ../contrib/osvvm/test-osvvm.tcl
           unzip ../contrib/osvvm/verified_results.zip
