@@ -330,6 +330,7 @@ typedef enum {
    V_SYSTF_RTOI,
    V_SYSTF_CEIL,
    V_SYSTF_FLOOR,
+   V_SYSTF_REALTIME,
 } vlog_systf_t;
 
 typedef enum {

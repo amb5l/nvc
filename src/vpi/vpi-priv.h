@@ -35,6 +35,7 @@ __attribute__((format(printf, 2, 3)))
 void vpi_trace(const char *func, const char *fmt, ...);
 
 void vpi_register_builtins(void);
+int64_t vpi_active_systf_ival(void);
 void vpi_clear_error(void);
 void vpi_format_number(int size, bool is_signed, const uint64_t *abits,
                        const uint64_t *bbits, s_vpi_value *val,

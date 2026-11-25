@@ -106,7 +106,7 @@ static const imask_t has_map[V_LAST_NODE_KIND] = {
    (I_VALUE | I_PARAMS),
 
    // V_SYS_FCALL
-   (I_IDENT | I_PARAMS | I_SUBKIND),
+   (I_IDENT | I_PARAMS | I_SUBKIND | I_IVAL),
 
    // V_FOREVER
    (I_STMTS),

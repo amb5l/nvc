@@ -1586,6 +1586,13 @@ vpiHandle vpi_bind_foreign(ident_t name, vlog_node_t where)
    return NULL;
 }
 
+int64_t vpi_active_systf_ival(void)
+{
+   vpi_context_t *c = vpi_context();
+   assert(c->call != NULL);
+   return vlog_ival(c->call->tfcall.where);
+}
+
 void vpi_call_foreign(vpiHandle handle, jit_scalar_t *args, tlab_t *tlab)
 {
    c_vpiObject *obj = from_handle(handle);
