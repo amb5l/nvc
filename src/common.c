@@ -1151,6 +1151,8 @@ void intern_strings(void)
       [W_DLR_CEIL]        = "$ceil",
       [W_DLR_FLOOR]        = "$floor",
       [W_DLR_REALTIME]    = "$realtime",
+      [W_DLR_TIME]        = "$time",
+      [W_DLR_STIME]       = "$stime",
       [W_COUNTERS]        = "#counters",
 
       [W_IEEE_LOGIC_VECTOR]      = "IEEE.STD_LOGIC_1164.STD_LOGIC_VECTOR",
