@@ -114,6 +114,7 @@ typedef struct _rt_model {
    uint64_t           trigger_epoch;
    bool               can_create_delta;
    bool               next_is_delta;
+   bool               draining_driving;
    bool               force_stop;
    bool               blocking_update;
    unsigned           n_signals;
@@ -2987,6 +2988,13 @@ static void defer_driving_update(rt_model_t *m, rt_nexus_t *n)
    TRACE("defer %s driving value update", trace_nexus(n));
    heap_insert(m->driving_heap, n->rank, n);
    n->flags |= NET_F_PENDING;
+
+   // The driving heap is drained at the start of a cycle. A deposit
+   // posted after that (a zero-delay nonblocking assignment onto a net
+   // that also has a force source) has to be applied before time
+   // advances. IEEE 1800-2017 4.5.
+   if (!m->draining_driving && m->can_create_delta)
+      m->next_is_delta = true;
 }
 
 static void update_driving(rt_model_t *m, rt_nexus_t *n, bool safe)
@@ -3308,6 +3316,8 @@ static void model_cycle(rt_model_t *m)
    deferq_run(m, &m->next_driverq);
 
    do {
+      m->draining_driving = true;
+
       for (int i = 0; i < m->reschedq.count; i++)
          (*m->reschedq.tasks[i].fn)(m, m->reschedq.tasks[i].arg);
       m->reschedq.count = 0;
@@ -3321,6 +3331,8 @@ static void model_cycle(rt_model_t *m)
          rt_nexus_t *n = heap_extract_min(m->effective_heap);
          update_effective(m, n);
       }
+
+      m->draining_driving = false;
    } while (m->reschedq.count > 0);
 
    sync_event_cache(m);

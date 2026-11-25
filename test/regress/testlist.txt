@@ -1547,3 +1547,4 @@ vlog81          verilog
 vlog82          verilog
 vlog83          verilog
 vlog84          verilog
+vlog85          verilog
