@@ -1529,3 +1529,6 @@ vlog63          mixed
 vlog64          verilog
 vlog65          verilog
 vlog66          verilog
+vlog67          mixed
+vlog68          mixed
+vlog69          mixed

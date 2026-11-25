@@ -2343,11 +2343,14 @@ static vlog_node_t elab_mixed_generics(tree_t comp, vlog_node_t mod,
       type_t integer = std_type(NULL, STD_INTEGER);
       type_t strtype = std_type(NULL, STD_STRING);
       type_t real = std_type(NULL, STD_REAL);
+      type_t boolean = std_type(NULL, STD_BOOLEAN);
+      const bool is_bool = type_eq(cbase, boolean);
 
       vlog_node_t ptype = vlog_type(d);
       const data_type_t dt = vlog_subkind(ptype);
       const bool want_string =
-         vlog_has_value(d) && vlog_kind(vlog_value(d)) == V_STRING;
+         dt == DT_STRING
+         || (vlog_has_value(d) && vlog_kind(vlog_value(d)) == V_STRING);
       const bool want_real =
          dt == DT_REAL || dt == DT_SHORTREAL || dt == DT_REALTIME
          || (vlog_has_value(d) && vlog_kind(vlog_value(d)) == V_REAL);
@@ -2361,7 +2364,10 @@ static vlog_node_t elab_mixed_generics(tree_t comp, vlog_node_t mod,
 
       const bool want_vector = !want_string && !want_real && vec_width > 0;
 
-      if (want_string && !type_eq(cbase, strtype)) {
+      // A boolean generic follows the Xilinx unisim_VCOMP convention.
+      // A string parameter receives "TRUE" or "FALSE". An integer or
+      // sized parameter receives 1 or 0, zero-extended to the width.
+      if (want_string && !type_eq(cbase, strtype) && !is_bool) {
          error_at(tree_loc(cg), "generic %pI should have type %pT to match "
                   "corresponding Verilog parameter", tree_ident(cg), strtype);
          return NULL;
@@ -2371,7 +2377,7 @@ static vlog_node_t elab_mixed_generics(tree_t comp, vlog_node_t mod,
                   "corresponding Verilog parameter", tree_ident(cg), real);
          return NULL;
       }
-      else if (want_vector && !type_eq(cbase, integer)
+      else if (want_vector && !type_eq(cbase, integer) && !is_bool
                && !elab_is_logic_vector(ctype)
                && !(vec_width == 1 && elab_is_logic(ctype))) {
          error_at(tree_loc(cg), "generic %pI should be a locally static "
@@ -2381,7 +2387,7 @@ static vlog_node_t elab_mixed_generics(tree_t comp, vlog_node_t mod,
          return NULL;
       }
       else if (!want_string && !want_real && !want_vector
-               && !type_eq(cbase, integer)) {
+               && !type_eq(cbase, integer) && !is_bool) {
          error_at(tree_loc(cg), "generic %pI should have type %pT to match "
                   "corresponding Verilog parameter", tree_ident(cg), integer);
          return NULL;
@@ -2400,7 +2406,19 @@ static vlog_node_t elab_mixed_generics(tree_t comp, vlog_node_t mod,
       }
 
       vlog_node_t num;
-      if (want_string) {
+      if (want_string && is_bool) {
+         int64_t ival;
+         if (!folded_int(value, &ival)) {
+            error_at(tree_loc(value), "generic %pI value is not a locally "
+                     "static boolean", tree_ident(cg));
+            return NULL;
+         }
+
+         const char *text = ival ? "TRUE" : "FALSE";
+         num = vlog_new(V_STRING);
+         vlog_set_number(num, number_from_string(text, ival ? 4 : 5));
+      }
+      else if (want_string) {
          if (tree_kind(value) != T_STRING) {
             error_at(tree_loc(value), "generic %pI value is not a locally "
                      "static string", tree_ident(cg));
@@ -2439,6 +2457,19 @@ static vlog_node_t elab_mixed_generics(tree_t comp, vlog_node_t mod,
          vlog_set_number(num, elab_number_from_integer(ival, vec_width,
                                                        issigned));
       }
+      else if (want_vector && is_bool) {
+         int64_t ival;
+         if (!folded_int(value, &ival)) {
+            error_at(tree_loc(value), "generic %pI value is not a locally "
+                     "static boolean", tree_ident(cg));
+            return NULL;
+         }
+
+         const bool issigned = !!(vlog_flags(ptype) & VLOG_F_SIGNED);
+         num = vlog_new(V_NUMBER);
+         vlog_set_number(num, elab_number_from_integer(ival ? 1 : 0,
+                                                       vec_width, issigned));
+      }
       else if (want_vector) {
          const bool scalar = !type_is_array(ctype);
          int64_t length = 1;
@@ -2447,6 +2478,9 @@ static vlog_node_t elab_mixed_generics(tree_t comp, vlog_node_t mod,
                      "static vector", tree_ident(cg));
             return NULL;
          }
+         // Same rule for bit_vector, std_logic_vector and
+         // std_ulogic_vector: the length must equal the parameter
+         // width. The bits are not zero-extended or truncated.
          else if (length != vec_width) {
             error_at(tree_loc(value), "generic %pI has length %"PRIi64
                      " but Verilog parameter %pQ is %d bits wide",
