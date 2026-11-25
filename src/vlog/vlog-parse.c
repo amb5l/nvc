@@ -1382,7 +1382,10 @@ static void p_list_of_arguments(vlog_node_t call)
       return;
 
    do {
-      if (peek() == tCOMMA) {
+      // An empty expression is allowed, including a trailing comma
+      if (peek() == tRPAREN)
+         break;
+      else if (peek() == tCOMMA) {
          vlog_node_t v = vlog_new(V_EMPTY);
          vlog_set_loc(v, &state.last_loc);
          vlog_add_param(call, v);
