@@ -1524,3 +1524,4 @@ vlog58          mixed,veriloglib=unisim,eltop=unisim.glbl
 vlog59          mixed
 vlog60          mixed
 vlog61          mixed
+vlog62          mixed

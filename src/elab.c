@@ -2364,6 +2364,13 @@ static vlog_node_t elab_mixed_generics(tree_t comp, vlog_node_t mod,
       if (value == NULL)
          fatal_at(tree_loc(ctx->out), "cannot get value of generic %pI",
                   tree_ident(cg));
+      else if (tree_kind(value) == T_OPEN) {
+         // Simplification leaves a non-literal default as an open map.
+         if (!tree_has_value(cg))
+            fatal_at(tree_loc(value), "generic %pI has no default value",
+                     tree_ident(cg));
+         value = tree_value(cg);
+      }
 
       vlog_node_t num;
       if (want_string) {
