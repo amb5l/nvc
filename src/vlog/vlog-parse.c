@@ -2443,7 +2443,22 @@ static vlog_node_t p_delay_control(void)
    return v;
 }
 
-static void p_delay3(void)
+static void scale_delay_number(vlog_node_t v)
+{
+   if (vlog_kind(v) == V_MIN_TYP_MAX)
+      v = vlog_value(v);
+
+   if (vlog_kind(v) != V_NUMBER || time_scale == 1)
+      return;
+
+   uint64_t value = number_integer(vlog_number(v));
+   if (__builtin_mul_overflow(value, time_scale, &value))
+      error_at(&state.last_loc, "time value cannot be represented");
+
+   vlog_set_number(v, number_from_int(value));
+}
+
+static vlog_node_t p_delay3(void)
 {
    // # delay_value | # ( mintypmax_expression [ , mintypmax_expression
    //   [ , mintypmax_expression ] ] )
@@ -2452,19 +2467,34 @@ static void p_delay3(void)
 
    consume(tHASH);
 
+   vlog_node_t v = vlog_new(V_DELAY_CONTROL);
+
    if (peek() != tLPAREN)
-      p_delay_value();
+      vlog_set_value(v, p_delay_value());
    else {
       consume(tLPAREN);
 
-      int expr_cnt = 0;
-      do {
+      // Rise delay. Fall and turn-off delays are accepted so that library
+      // models analyse; only the rise delay is applied to the assignment.
+      // A leading unsized number is scaled by the current time unit, matching
+      // a bare delay value.
+      const bool scale = (peek() == tUNSNUM || peek() == tREAL);
+      vlog_node_t expr = p_mintypmax_expression();
+      if (scale)
+         scale_delay_number(expr);
+      vlog_set_value(v, expr);
+
+      int expr_cnt = 1;
+      while (expr_cnt < 3 && optional(tCOMMA)) {
          (void)p_mintypmax_expression();
          expr_cnt++;
-      } while (optional(tCOMMA) && (expr_cnt < 3));
+      }
 
       consume(tRPAREN);
    }
+
+   vlog_set_loc(v, CURRENT_LOC);
+   return v;
 }
 
 static void p_delay2(void)
@@ -3686,9 +3716,9 @@ static void p_continuous_assign(vlog_node_t mod)
    if (peek() == tLPAREN) {
       strength = p_drive_strength();
       if (peek() == tHASH)
-         p_delay3();
+         delay = p_delay3();
    } else if (peek() == tHASH)
-      delay = p_delay_control();
+      delay = p_delay3();
 
    p_list_of_net_assignments(mod, delay, strength);
 
@@ -3947,7 +3977,7 @@ static void p_net_declaration(vlog_node_t mod)
          }
 
          if (peek() == tHASH)
-            p_delay3();
+            (void)p_delay3();
 
          p_list_of_net_decl_assignments(mod, kind, dt);
       }
@@ -5912,7 +5942,7 @@ static void p_gate_instantiation(vlog_node_t mod)
          }
 
          if (peek() == tHASH)
-            p_delay3();
+            (void)p_delay3();
 
          const vlog_gate_kind_t kind = get_gate_kind(token);
 
