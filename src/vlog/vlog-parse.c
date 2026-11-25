@@ -6528,9 +6528,76 @@ static vlog_node_t p_delayed_data_or_reference(void)
 
    BEGIN("delayed data/reference");
 
-   p_identifier();
+   vlog_node_t v = vlog_new(V_REF);
+   vlog_set_ident(v, p_identifier());
+   vlog_set_loc(v, CURRENT_LOC);
 
-   return NULL;
+   vlog_symtab_lookup(symtab, v);
+
+   // The bracket form is an annotated delay. Without SDF the copy is
+   // zero delay, so the expression is accepted and not applied.
+   if (optional(tLSQUARE)) {
+      (void)p_constant_mintypmax_expression();
+      consume(tRSQUARE);
+   }
+
+   return v;
+}
+
+static vlog_node_t tcheck_event_terminal(vlog_node_t ev)
+{
+   vlog_node_t p0 = vlog_param(ev, 0);
+   if (vlog_kind(p0) == V_REF)
+      return p0;
+   else if (vlog_has_value(p0))
+      return vlog_value(p0);
+   else
+      return NULL;
+}
+
+static bool specify_already_drives(vlog_node_t spec, ident_t name)
+{
+   const int nstmts = vlog_stmts(spec);
+   for (int i = 0; i < nstmts; i++) {
+      vlog_node_t s = vlog_stmt(spec, i);
+      if (vlog_kind(s) != V_ASSIGN)
+         continue;
+
+      vlog_node_t tgt = vlog_target(s);
+      if (vlog_kind(tgt) == V_REF && vlog_ident(tgt) == name)
+         return true;
+   }
+
+   return false;
+}
+
+static void add_zero_delay_copy(vlog_node_t spec, vlog_node_t delayed,
+                                vlog_node_t source)
+{
+   // IEEE 1800-2017 31.9: with no timing annotation the delayed
+   // reference and data signals are copies of the original signals.
+   if (delayed == NULL || source == NULL)
+      return;
+   else if (specify_already_drives(spec, vlog_ident(delayed)))
+      return;
+
+   vlog_node_t src = vlog_new(V_REF);
+   vlog_set_ident(src, vlog_ident(source));
+   vlog_set_loc(src, vlog_loc(source));
+   if (vlog_has_ref(source))
+      vlog_set_ref(src, vlog_ref(source));
+
+   vlog_node_t as = vlog_new(V_ASSIGN);
+   vlog_set_target(as, delayed);
+   vlog_set_value(as, src);
+   // The parser cursor is still on the timing check, so default_label
+   // would give every copy from one check the same process name.
+   const loc_t *loc = vlog_loc(delayed);
+   vlog_set_ident(as, ident_sprintf("assign#%u#%u", loc->first_line,
+                                    loc->first_column));
+   vlog_set_loc(as, loc);
+
+   vlog_add_stmt(spec, as);
 }
 
 static vlog_node_t p_period_timing_check(void)
@@ -6560,7 +6627,7 @@ static vlog_node_t p_period_timing_check(void)
    return NULL;
 }
 
-static vlog_node_t p_setuphold_or_recrem_timing_check(void)
+static vlog_node_t p_setuphold_or_recrem_timing_check(vlog_node_t spec)
 {
    // $setuphold ( reference_event , data_event , timing_check_limit ,
    //    timing_check_limit [ , [ notifier ] [ , [ timestamp_condition ]
@@ -6572,11 +6639,11 @@ static vlog_node_t p_setuphold_or_recrem_timing_check(void)
    one_of(tDLRSETUPHOLD, tDLRRECREM);
    consume(tLPAREN);
 
-   (void)p_timing_check_event();
+   vlog_node_t ref_ev = p_timing_check_event();
 
    consume(tCOMMA);
 
-   (void)p_timing_check_event();
+   vlog_node_t data_ev = p_timing_check_event();
 
    consume(tCOMMA);
 
@@ -6599,13 +6666,19 @@ static vlog_node_t p_setuphold_or_recrem_timing_check(void)
                (void)p_mintypmax_expression();  // timecheck_condition
 
             if (optional(tCOMMA)) {
+               vlog_node_t dref = NULL, ddata = NULL;
+
                if (not_at_token(tCOMMA, tRPAREN))
-                  p_delayed_data_or_reference();  // delayed_reference
+                  dref = p_delayed_data_or_reference();
 
                if (optional(tCOMMA)) {
                   if (not_at_token(tCOMMA, tRPAREN))
-                     p_delayed_data_or_reference();  // delayed_data
+                     ddata = p_delayed_data_or_reference();
                }
+
+               add_zero_delay_copy(spec, dref, tcheck_event_terminal(ref_ev));
+               add_zero_delay_copy(spec, ddata,
+                                   tcheck_event_terminal(data_ev));
             }
          }
       }
@@ -6617,7 +6690,7 @@ static vlog_node_t p_setuphold_or_recrem_timing_check(void)
    return NULL;
 }
 
-static vlog_node_t p_system_timing_check(void)
+static vlog_node_t p_system_timing_check(vlog_node_t parent)
 {
    // $setup_timing_check | $hold_timing_check | $setuphold_timing_check
    //   | $recovery_timing_check | $removal_timing_check | $recrem_timing_check
@@ -6639,7 +6712,7 @@ static vlog_node_t p_system_timing_check(void)
       return p_period_timing_check();
    case tDLRSETUPHOLD:
    case tDLRRECREM:
-      return p_setuphold_or_recrem_timing_check();
+      return p_setuphold_or_recrem_timing_check(parent);
    default:
       should_not_reach_here();
    }
@@ -6751,7 +6824,7 @@ static void p_specify_item(vlog_node_t parent)
    case tDLRWIDTH:
    case tDLRPERIOD:
       {
-         vlog_node_t tcheck = p_system_timing_check();
+         vlog_node_t tcheck = p_system_timing_check(parent);
          // TODO: Remove once all timing checks are supported.
          if (tcheck != NULL)
             vlog_add_stmt(parent, tcheck);
