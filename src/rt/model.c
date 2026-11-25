@@ -491,7 +491,10 @@ rt_model_t *model_new(jit_t *jit, cover_data_t *cover)
    m->jit         = jit;
    m->nexus_tail  = &(m->nexuses);
    m->iteration   = -1;
-   m->eventq_heap = heap_new(512);
+   // Same-time events run in the order they were scheduled. Several
+   // instances can post a #1 in one timestep; the earlier post runs
+   // first, which is the order BUFGCE_DIV's divide code relies on.
+   m->eventq_heap = heap_new_stable(512);
    m->res_memo    = ihash_new(128);
    m->cover       = cover;
 

@@ -1536,3 +1536,4 @@ vlog70          verilog
 vlog71          verilog
 vlog72          verilog
 vlog73          verilog
+vlog74          verilog
