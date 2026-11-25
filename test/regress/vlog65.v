@@ -1,21 +1,22 @@
-`timescale 1 ns / 1 ps
-
 module vlog65;
+  integer d;
+  real r;
+  reg q;
+
   initial begin
-    if ($realtime != 0.0) begin
-      $display("FAILED: time zero is %f", $realtime);
+    d = 4;
+    r = 3.0;
+    q = 1'b0;
+
+    #d q = 1'b1;
+    if ($time !== 4) begin
+      $display("FAILED: integer delay time %0t q %b", $time, q);
       $finish;
     end
 
-    #1;
-    if ($realtime != 1.0) begin
-      $display("FAILED: 1 ns is %f", $realtime);
-      $finish;
-    end
-
-    #3;
-    if ($realtime != 4.0) begin
-      $display("FAILED: 4 ns is %f", $realtime);
+    #r q = 1'b0;
+    if ($time !== 7 || q !== 1'b0) begin
+      $display("FAILED: real delay time %0t q %b", $time, q);
       $finish;
     end
 
