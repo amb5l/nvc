@@ -1514,3 +1514,4 @@ issue1730       verilog
 issue1724       normal,2008
 vlog63          verilog
 vlog64          verilog
+vlog65          verilog
