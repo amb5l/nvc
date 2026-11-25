@@ -949,6 +949,7 @@ static bool vlog_has_side_effects(vlog_node_t v)
    case V_BIT_SELECT:
    case V_PART_SELECT:
    case V_NUMBER:
+   case V_REAL:
       return false;
    case V_UNARY:
       return vlog_has_side_effects(vlog_value(v));
@@ -1291,6 +1292,15 @@ static mir_value_t vlog_lower_binary(vlog_gen_t *g, vlog_node_t v,
    if (mir_is_null(var))
       loaded = result;
    else {
+      if (!mir_is_vector(g->mu, result)) {
+         // Scalar &&/||, such as a real comparison, lower to a bool. The
+         // short-circuit temporary is a 1-bit four-state vector.
+         mir_type_t t_bit = mir_vec4_type(g->mu, 1, false);
+         result = mir_build_select(g->mu, t_bit, result,
+                                   mir_const_vec(g->mu, t_bit, 1, 0),
+                                   mir_const_vec(g->mu, t_bit, 0, 0));
+      }
+
       mir_build_store(g->mu, var, result);
       mir_build_jump(g->mu, skip_bb);
 
@@ -2294,9 +2304,9 @@ static void vlog_lower_timing(vlog_gen_t *g, vlog_node_t v, gen_stack_t *gs)
    switch (vlog_kind(ctrl)) {
    case V_DELAY_CONTROL:
       {
-         mir_type_t t_time = mir_time_type(g->mu);
-         mir_value_t delay = vlog_lower_rvalue(g, vlog_value(ctrl));
-         mir_value_t cast = mir_build_cast(g->mu, t_time, delay);
+         // A delay can be a vector, an integer, or a real. vlog_lower_time
+         // converts each of those to a time; a direct cast does not.
+         mir_value_t cast = vlog_lower_time(g, vlog_value(ctrl));
 
          int64_t dconst;
          if (mir_get_const(g->mu, cast, &dconst) && dconst == 0)

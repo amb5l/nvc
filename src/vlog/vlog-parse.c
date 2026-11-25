@@ -1402,12 +1402,18 @@ static vlog_node_t p_system_tf_call(vlog_kind_t kind)
    case W_DLR_RTOI:     subk = V_SYSTF_RTOI; break;
    case W_DLR_CEIL:     subk = V_SYSTF_CEIL; break;
    case W_DLR_FLOOR:    subk = V_SYSTF_FLOOR; break;
+   case W_DLR_REALTIME: subk = V_SYSTF_REALTIME; break;
    default:             subk = V_SYSTF_NONE; break;
    }
 
    vlog_node_t v = vlog_new(kind);
    vlog_set_ident(v, id);
    vlog_set_subkind(v, subk);
+
+   // Time unit of the module that contains this call, in femtoseconds.
+   // $realtime divides the simulation time by this scale.
+   if (subk == V_SYSTF_REALTIME)
+      vlog_set_ival(v, time_scale == 0 ? 1 : (int64_t)time_scale);
 
    if (optional(tLPAREN)) {
       p_list_of_arguments(v);

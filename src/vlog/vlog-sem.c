@@ -1091,6 +1091,8 @@ static type_mask_t vlog_check_sys_fcall(vlog_node_t v)
    case V_SYSTF_SQRT:
    case V_SYSTF_CEIL:
       return TM_REAL | (TM_CONST & mask);
+   case V_SYSTF_REALTIME:
+      return TM_REAL;
    default:
       return TM_INTEGRAL;
    }
