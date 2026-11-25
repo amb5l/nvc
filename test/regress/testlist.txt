@@ -1521,3 +1521,5 @@ vlog55          verilog
 vlog56          shell
 vlog57          mixed,veriloglib=unisim
 vlog58          mixed,veriloglib=unisim,eltop=unisim.glbl
+vlog59          mixed
+vlog60          mixed
