@@ -5650,6 +5650,22 @@ static vlog_node_t p_pullup_strength(void)
    return v;
 }
 
+static void p_gate_instance_name(vlog_node_t v)
+{
+   // [ name_of_instance ]
+
+   if (peek() == tID) {
+      vlog_set_ident(v, p_identifier());
+      vlog_set_loc(v, &state.last_loc);
+      vlog_symtab_put(symtab, v);
+   }
+   else
+      vlog_set_ident(v, default_label("gate"));
+
+   while (peek() == tLSQUARE)
+      vlog_add_range(v, p_unpacked_dimension());
+}
+
 static vlog_node_t p_pull_gate_instance(vlog_gate_kind_t kind, vlog_node_t st)
 {
    // [ name_of_instance ] ( output_terminal )
@@ -5660,13 +5676,7 @@ static vlog_node_t p_pull_gate_instance(vlog_gate_kind_t kind, vlog_node_t st)
    vlog_set_subkind(v, kind);
    vlog_add_param(v, st);
 
-   if (peek() == tID) {
-      vlog_set_ident(v, p_identifier());
-      vlog_set_loc(v, &state.last_loc);
-      vlog_symtab_put(symtab, v);
-   }
-   else
-      vlog_set_ident(v, default_label("gate"));
+   p_gate_instance_name(v);
 
    consume(tLPAREN);
 
@@ -5693,13 +5703,7 @@ static vlog_node_t p_n_terminal_gate_instance(vlog_gate_kind_t kind,
    vlog_node_t v = vlog_new(V_GATE_INST);
    vlog_set_subkind(v, kind);
 
-   if (peek() == tID) {
-      vlog_set_ident(v, p_identifier());
-      vlog_set_loc(v, &state.last_loc);
-      vlog_symtab_put(symtab, v);
-   }
-   else
-      vlog_set_ident(v, default_label("gate"));
+   p_gate_instance_name(v);
 
    consume(tLPAREN);
 
@@ -5733,13 +5737,7 @@ static vlog_node_t p_enable_gate_instance(vlog_gate_kind_t kind,
    vlog_set_subkind(v, kind);
    vlog_add_param(v, st);
 
-   if (peek() == tID) {
-      vlog_set_ident(v, p_identifier());
-      vlog_set_loc(v, &state.last_loc);
-      vlog_symtab_put(symtab, v);
-   }
-   else
-      vlog_set_ident(v, default_label("gate"));
+   p_gate_instance_name(v);
 
    consume(tLPAREN);
 
@@ -5772,13 +5770,7 @@ static vlog_node_t p_pass_switch_instance(vlog_gate_kind_t kind)
    vlog_node_t v = vlog_new(V_GATE_INST);
    vlog_set_subkind(v, kind);
 
-   if (peek() == tID) {
-      vlog_set_ident(v, p_identifier());
-      vlog_set_loc(v, &state.last_loc);
-      vlog_symtab_put(symtab, v);
-   }
-   else
-      vlog_set_ident(v, default_label("gate"));
+   p_gate_instance_name(v);
 
    consume(tLPAREN);
 
@@ -5808,13 +5800,7 @@ static vlog_node_t p_pass_enable_switch_instance(vlog_gate_kind_t kind)
    vlog_node_t v = vlog_new(V_GATE_INST);
    vlog_set_subkind(v, kind);
 
-   if (peek() == tID) {
-      vlog_set_ident(v, p_identifier());
-      vlog_set_loc(v, &state.last_loc);
-      vlog_symtab_put(symtab, v);
-   }
-   else
-      vlog_set_ident(v, default_label("gate"));
+   p_gate_instance_name(v);
 
    consume(tLPAREN);
 

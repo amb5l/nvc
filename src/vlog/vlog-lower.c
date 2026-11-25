@@ -3507,8 +3507,204 @@ static void vlog_lower_net_process(vlog_gen_t *g, vlog_node_t v)
    }
 }
 
+static int vlog_gate_count(vlog_node_t v)
+{
+   if (vlog_ranges(v) == 0)
+      return 1;
+
+   if (vlog_ranges(v) > 1)
+      fatal_at(vlog_loc(v), "multi-dimensional gate arrays are not supported");
+
+   int64_t left, right;
+   vlog_node_t dim = vlog_range(v, 0);
+   if (!vlog_bounds(dim, &left, &right))
+      fatal_at(vlog_loc(dim), "gate array range is not constant");
+
+   const int64_t span = left >= right ? left - right : right - left;
+   return span + 1;
+}
+
+static void vlog_gate_check_width(vlog_node_t term, int ninst)
+{
+   const unsigned width = vlog_width(term);
+   if (width != 1 && width != (unsigned)ninst) {
+      fatal_at(vlog_loc(term), "gate array terminal width %u does not match "
+               "%d instances", width, ninst);
+   }
+}
+
+static mir_value_t vlog_lower_gate_input(vlog_gen_t *g, vlog_node_t term,
+                                         int from_left, int ninst)
+{
+   // The leftmost array element connects to the leftmost bit, which is the
+   // most significant bit of the vector.
+   mir_type_t t_logic = mir_vec4_type(g->mu, 1, false);
+   mir_value_t full = vlog_lower_rvalue(g, term);
+
+   const unsigned width = vlog_width(term);
+   if (width <= 1)
+      return vlog_lower_cast(g, t_logic, full);
+
+   mir_type_t t_vec = mir_vec4_type(g->mu, width, false);
+   mir_value_t cast = vlog_lower_cast(g, t_vec, full);
+   mir_type_t t_offset = mir_offset_type(g->mu);
+   mir_value_t pos = mir_const(g->mu, t_offset, width - 1 - from_left);
+   return mir_build_extract(g->mu, t_logic, cast, pos);
+}
+
+static void vlog_lower_gate_array(vlog_gen_t *g, vlog_node_t v, int ninst)
+{
+   mir_block_t start_bb = mir_add_block(g->mu);
+   assert(start_bb.id == 1);
+
+   mir_type_t t_logic = mir_vec4_type(g->mu, 1, false);
+
+   const int nparams = vlog_params(v);
+   int first_term = 0;
+   for (int i = 0; i < nparams; i++) {
+      vlog_node_t p = vlog_param(v, i);
+      if (vlog_kind(p) == V_STRENGTH)
+         first_term = i + 1;
+      else
+         vlog_lower_sensitivity(g, p);
+   }
+
+   vlog_node_t target = vlog_target(v);
+   vlog_gate_check_width(target, ninst);
+   for (int i = first_term; i < nparams; i++)
+      vlog_gate_check_width(vlog_param(v, i), ninst);
+
+   vlog_lower_driver(g, target);
+
+   mir_build_return(g->mu, MIR_NULL_VALUE);
+
+   mir_set_cursor(g->mu, start_bb, MIR_APPEND);
+
+   for (int bit = 0; bit < ninst; bit++) {
+      bool negate = false;
+      uint8_t strength = ST_STRONG;
+      mir_value_t value = MIR_NULL_VALUE;
+      const vlog_gate_kind_t kind = vlog_subkind(v);
+
+      switch (kind) {
+      case V_GATE_PULLUP:
+      case V_GATE_PULLDOWN:
+         strength = vlog_subkind(vlog_param(v, 0));
+         value = mir_const_vec(g->mu, t_logic, kind == V_GATE_PULLUP, 0);
+         break;
+
+      case V_GATE_NAND:
+      case V_GATE_NOR:
+      case V_GATE_XNOR:
+         negate = true;
+      case V_GATE_AND:
+      case V_GATE_OR:
+      case V_GATE_XOR:
+         {
+            static const mir_vec_op_t op_map[] = {
+               [V_GATE_AND] = MIR_VEC_BIT_AND,
+               [V_GATE_NAND] = MIR_VEC_BIT_AND,
+               [V_GATE_OR] = MIR_VEC_BIT_OR,
+               [V_GATE_NOR] = MIR_VEC_BIT_OR,
+               [V_GATE_XOR] = MIR_VEC_BIT_XOR,
+               [V_GATE_XNOR] = MIR_VEC_BIT_XOR,
+            };
+
+            value = vlog_lower_gate_input(g, vlog_param(v, first_term),
+                                          bit, ninst);
+
+            const int nelems = nparams - first_term;
+            for (int i = 1; i < nelems; i++) {
+               vlog_node_t p = vlog_param(v, first_term + i);
+               mir_value_t arg = vlog_lower_gate_input(g, p, bit, ninst);
+               value = mir_build_binary(g->mu, op_map[kind], t_logic,
+                                        value, arg);
+            }
+
+            if (negate)
+               value = mir_build_unary(g->mu, MIR_VEC_BIT_NOT, t_logic, value);
+         }
+         break;
+
+      case V_GATE_NOT:
+         {
+            mir_value_t input =
+               vlog_lower_gate_input(g, vlog_param(v, nparams - 1), bit, ninst);
+            value = mir_build_unary(g->mu, MIR_VEC_BIT_NOT, t_logic, input);
+         }
+         break;
+
+      case V_GATE_BUF:
+         {
+            // Invert twice for correct X/Z behaviour
+            mir_value_t input =
+               vlog_lower_gate_input(g, vlog_param(v, nparams - 1), bit, ninst);
+            value = mir_build_unary(g->mu, MIR_VEC_BIT_NOT, t_logic, input);
+            value = mir_build_unary(g->mu, MIR_VEC_BIT_NOT, t_logic, value);
+         }
+         break;
+
+      case V_GATE_NOTIF0:
+      case V_GATE_NOTIF1:
+         negate = true;
+         // Fall-through
+      case V_GATE_BUFIF0:
+      case V_GATE_BUFIF1:
+         {
+            mir_value_t cast =
+               vlog_lower_gate_input(g, vlog_param(v, first_term), bit, ninst);
+
+            if (negate)
+               cast = mir_build_unary(g->mu, MIR_VEC_BIT_NOT, t_logic, cast);
+
+            mir_value_t enable_cast = vlog_lower_gate_input(
+               g, vlog_param(v, first_term + 1), bit, ninst);
+
+            const bool active_high =
+               kind == V_GATE_BUFIF1 || kind == V_GATE_NOTIF1;
+            mir_value_t active_value =
+               mir_const_vec(g->mu, t_logic, active_high, 0);
+            mir_value_t active_vec =
+               mir_build_binary(g->mu, MIR_VEC_CASE_EQ, t_logic, enable_cast,
+                                active_value);
+            mir_value_t active = vlog_lower_test(g, active_vec);
+            mir_value_t highz = mir_const_vec(g->mu, t_logic, 0, 1);
+
+            value = mir_build_select(g->mu, t_logic, active, cast, highz);
+         }
+         break;
+
+      default:
+         fatal_at(vlog_loc(v), "arrayed instances of this gate are not "
+                  "supported");
+      }
+
+      vlog_select_t lvalue = vlog_lower_select(g, target);
+
+      mir_type_t t_offset = mir_offset_type(g->mu);
+      const int pos = lvalue.size - 1 - bit;
+      mir_value_t dst = mir_build_add(g->mu, t_offset, lvalue.dst_offset,
+                                      mir_const(g->mu, t_offset, pos));
+
+      mir_value_t unpacked =
+         mir_build_unpack(g->mu, value, strength, MIR_NULL_VALUE);
+      mir_value_t nets = mir_build_array_ref(g->mu, lvalue.obj, dst);
+      mir_value_t one = mir_const(g->mu, t_offset, 1);
+
+      mir_build_put_driver(g->mu, nets, one, unpacked);
+   }
+
+   mir_build_wait(g->mu, start_bb);
+}
+
 static void vlog_lower_gate_inst(vlog_gen_t *g, vlog_node_t v)
 {
+   const int ninst = vlog_gate_count(v);
+   if (ninst > 1) {
+      vlog_lower_gate_array(g, v, ninst);
+      return;
+   }
+
    mir_block_t start_bb = mir_add_block(g->mu);
    assert(start_bb.id == 1);
 
