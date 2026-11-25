@@ -37,6 +37,7 @@
 #include "vhdl/vhdl-phase.h"
 #include "vlog/vlog-defs.h"
 #include "vlog/vlog-node.h"
+#include "vlog/vlog-number.h"
 #include "vlog/vlog-phase.h"
 #include "vlog/vlog-util.h"
 
@@ -615,6 +616,74 @@ static tree_t elab_to_verilog(type_t from, type_t to)
    return NULL;
 }
 
+static tree_t elab_inout_verilog(type_t from, type_t to)
+{
+   static struct {
+      const ieee_type_t    from_id;
+      const verilog_type_t to_id;
+      const char *const    func;
+      type_t               from;
+      type_t               to;
+      tree_t               decl;
+   } table[] = {
+      { IEEE_STD_ULOGIC, VERILOG_NET_VALUE,
+        "NVC.VERILOG.INOUT_TO_VERILOG(U)" T_NET_VALUE },
+      { IEEE_STD_ULOGIC_VECTOR, VERILOG_WIRE_ARRAY,
+        "NVC.VERILOG.INOUT_TO_VERILOG(Y)" T_NET_ARRAY },
+      { IEEE_STD_LOGIC_VECTOR, VERILOG_WIRE_ARRAY,
+        "NVC.VERILOG.INOUT_TO_VERILOG(Y)" T_NET_ARRAY },
+   };
+
+   INIT_ONCE({
+         for (int i = 0; i < ARRAY_LEN(table); i++) {
+            table[i].from = ieee_type(table[i].from_id);
+            table[i].to   = verilog_type(table[i].to_id);
+            table[i].decl = verilog_func(ident_new(table[i].func));
+         }
+      });
+
+   for (int i = 0; i < ARRAY_LEN(table); i++) {
+      if (type_eq(table[i].from, from) && type_eq(table[i].to, to))
+         return table[i].decl;
+   }
+
+   return NULL;
+}
+
+static tree_t elab_inout_vhdl(type_t from, type_t to)
+{
+   static struct {
+      const verilog_type_t from_id;
+      const ieee_type_t    to_id;
+      const char *const    func;
+      type_t               from;
+      type_t               to;
+      tree_t               decl;
+   } table[] = {
+      { VERILOG_NET_VALUE, IEEE_STD_LOGIC,
+        "NVC.VERILOG.INOUT_TO_VHDL(" T_NET_VALUE ")U" },
+      { VERILOG_WIRE_ARRAY, IEEE_STD_ULOGIC_VECTOR,
+        "NVC.VERILOG.INOUT_TO_VHDL(" T_WIRE_ARRAY ")Y" },
+      { VERILOG_WIRE_ARRAY, IEEE_STD_LOGIC_VECTOR,
+        "NVC.VERILOG.INOUT_TO_VHDL(" T_WIRE_ARRAY ")Y" },
+   };
+
+   INIT_ONCE({
+         for (int i = 0; i < ARRAY_LEN(table); i++) {
+            table[i].from = verilog_type(table[i].from_id);
+            table[i].to   = ieee_type(table[i].to_id);
+            table[i].decl = verilog_func(ident_new(table[i].func));
+         }
+      });
+
+   for (int i = 0; i < ARRAY_LEN(table); i++) {
+      if (type_eq(table[i].from, from) && type_eq(table[i].to, to))
+         return table[i].decl;
+   }
+
+   return NULL;
+}
+
 static tree_t elab_mixed_binding(tree_t comp, const elab_instance_t *ei)
 {
    assert(tree_kind(comp) == T_COMPONENT);
@@ -664,17 +733,24 @@ static tree_t elab_mixed_binding(tree_t comp, const elab_instance_t *ei)
       const v_port_kind_t mdir = vlog_subkind(mport);
       const port_mode_t cdir = tree_subkind(cport);
 
-      if (mdir != V_PORT_INPUT && mdir != V_PORT_OUTPUT) {
-         error_at(tree_loc(cport), "only input and output ports are supported "
-                  "for mixed language instantiation");
+      const char *vdir = "input";
+      if (mdir == V_PORT_OUTPUT)
+         vdir = "output";
+      else if (mdir == V_PORT_INOUT)
+         vdir = "inout";
+
+      if (mdir != V_PORT_INPUT && mdir != V_PORT_OUTPUT
+          && mdir != V_PORT_INOUT) {
+         error_at(tree_loc(cport), "only input, output and inout ports are "
+                  "supported for mixed language instantiation");
          return NULL;
       }
       else if (!(mdir == V_PORT_INPUT && cdir == PORT_IN)
-               && !(mdir == V_PORT_OUTPUT && cdir == PORT_OUT)) {
+               && !(mdir == V_PORT_OUTPUT && cdir == PORT_OUT)
+               && !(mdir == V_PORT_INOUT && cdir == PORT_INOUT)) {
          error_at(tree_loc(cport), "VHDL port direction %s does not match "
                   "corresponding Verilog port %pQ which is declared as %s",
-                  port_mode_str(cdir), vlog_ident(mport),
-                  mdir == V_PORT_INPUT ? "input" : "output");
+                  port_mode_str(cdir), vlog_ident(mport), vdir);
          return NULL;
       }
 
@@ -684,7 +760,32 @@ static tree_t elab_mixed_binding(tree_t comp, const elab_instance_t *ei)
       tree_t conv = tree_new(T_CONV_FUNC);
       tree_set_loc(conv, tree_loc(cport));
 
-      if (mdir == V_PORT_INPUT) {
+      if (mdir == V_PORT_INOUT) {
+         tree_t to_vlog = elab_inout_verilog(btype, vtype);
+         tree_t to_vhdl = elab_inout_vhdl(vtype, btype);
+         if (to_vlog == NULL || to_vhdl == NULL) {
+            error_at(tree_loc(cport), "cannot connect VHDL signal with type "
+                     "%pT to Verilog inout port %pQ", btype,
+                     vlog_ident(mport));
+            return NULL;
+         }
+
+         tree_set_ref(conv, to_vlog);
+         tree_set_ident(conv, tree_ident(to_vlog));
+         tree_set_type(conv, type_result(tree_type(to_vlog)));
+         tree_set_value(conv, make_ref(cport));
+
+         tree_t back = tree_new(T_CONV_FUNC);
+         tree_set_loc(back, tree_loc(cport));
+         tree_set_ref(back, to_vhdl);
+         tree_set_ident(back, tree_ident(to_vhdl));
+         tree_set_type(back, type_result(tree_type(to_vhdl)));
+         tree_set_value(back, make_ref(vport));
+
+         add_param(bind, conv, P_NAMED, back);
+         have_named = true;
+      }
+      else if (mdir == V_PORT_INPUT) {
          tree_t func = elab_to_verilog(btype, vtype);
          if (func == NULL) {
             error_at(tree_loc(cport), "cannot connect VHDL signal with type "
@@ -2027,6 +2128,168 @@ static void elab_verilog_sub_blocks(vlog_node_t v, const elab_ctx_t *ctx)
    }
 }
 
+static bool elab_is_logic(type_t type)
+{
+   type_t base = type_base_recur(type);
+   return type_eq(base, ieee_type(IEEE_STD_ULOGIC))
+      || type_eq(base, std_type(NULL, STD_BIT));
+}
+
+static bool elab_is_logic_vector(type_t type)
+{
+   if (!type_is_array(type) || dimension_of(type) != 1)
+      return false;
+
+   return elab_is_logic(type_elem(type));
+}
+
+static vlog_logic_t elab_logic_of_enum(tree_t lit)
+{
+   const char *s = istr(tree_ident(lit));
+   char ch = s[0];
+   if (ch == '\'' && s[1] != '\0')
+      ch = s[1];
+
+   switch (ch) {
+   case '0': case 'L': return LOGIC_0;
+   case '1': case 'H': return LOGIC_1;
+   case 'Z': case 'z': return LOGIC_Z;
+   case 'X': case 'U': case 'W': case '-': return LOGIC_X;
+   default:
+      return (vlog_logic_t)-1;
+   }
+}
+
+static bool elab_static_elem(tree_t value, int depth, unsigned *pos)
+{
+   switch (tree_kind(value)) {
+   case T_QUALIFIED:
+   case T_TYPE_CONV:
+      return elab_static_elem(tree_value(value), depth, pos);
+   case T_REF:
+      {
+         if (!tree_has_ref(value))
+            return false;
+
+         tree_t decl = tree_ref(value);
+         if (tree_kind(decl) != T_CONST_DECL && tree_kind(decl) != T_ALIAS)
+            return false;
+         else if (!tree_has_value(decl))
+            return false;
+
+         return elab_static_elem(tree_value(decl), depth, pos);
+      }
+   case T_STRING:
+   case T_AGGREGATE:
+   case T_ARRAY_SLICE:
+      {
+         const unsigned c = get_case_choice_char(value, depth);
+         if (c == ~0u)
+            return false;
+
+         *pos = c;
+         return true;
+      }
+   default:
+      return false;
+   }
+}
+
+static bool elab_folded_real(tree_t t, double *d)
+{
+   if (folded_real(t, d))
+      return true;
+
+   if (tree_kind(t) == T_REF && tree_has_ref(t)) {
+      tree_t decl = tree_ref(t);
+      if ((tree_kind(decl) == T_CONST_DECL || tree_kind(decl) == T_ALIAS)
+          && tree_has_value(decl))
+         return elab_folded_real(tree_value(decl), d);
+   }
+
+   return false;
+}
+
+static int elab_vector_param_width(vlog_node_t d)
+{
+   vlog_node_t type = vlog_type(d);
+   const data_type_t dt = vlog_subkind(type);
+
+   if (dt != DT_LOGIC && dt != DT_BIT && dt != DT_IMPLICIT)
+      return 0;
+
+   if (vlog_ranges(type) > 0) {
+      const unsigned w = vlog_size(type);
+      return w > 0 ? w : -1;
+   }
+
+   if (dt == DT_LOGIC || dt == DT_BIT)
+      return 1;
+
+   if (vlog_has_value(d) && vlog_kind(vlog_value(d)) == V_NUMBER) {
+      const number_t n = vlog_number(vlog_value(d));
+      if (!number_signed(n) || number_width(n) == 1)
+         return number_width(n);
+   }
+
+   return 0;
+}
+
+static number_t elab_number_from_logics(int width, const vlog_logic_t *bits,
+                                        bool issigned)
+{
+   const int nwords = (width + 63) / 64;
+   uint64_t *abits LOCAL = xcalloc_array(nwords, sizeof(uint64_t));
+   uint64_t *bbits LOCAL = xcalloc_array(nwords, sizeof(uint64_t));
+
+   for (int bit = 0; bit < width; bit++) {
+      const uint64_t mask = UINT64_C(1) << (bit % 64);
+      const int word = bit / 64;
+      if (bits[bit] & 1)
+         abits[word] |= mask;
+      if (bits[bit] >> 1)
+         bbits[word] |= mask;
+   }
+
+   jit_scalar_t a, b;
+   if (width <= 64) {
+      a.integer = abits[0];
+      b.integer = bbits[0];
+   }
+   else {
+      a.pointer = abits;
+      b.pointer = bbits;
+   }
+
+   return number_from_jit(width, issigned, a, b);
+}
+
+static number_t elab_number_from_integer(int64_t value, int width,
+                                         bool issigned)
+{
+   // An integer generic is a 32-bit pattern, zero-extended to the
+   // Verilog parameter width. Sized parameters that still use an
+   // integer override depend on this.
+   const uint64_t low = (uint32_t)value;
+
+   if (width <= 64) {
+      jit_scalar_t a, b;
+      a.integer = low;
+      b.integer = 0;
+      return number_from_jit(width, issigned, a, b);
+   }
+
+   const int nwords = (width + 63) / 64;
+   uint64_t *abits LOCAL = xcalloc_array(nwords, sizeof(uint64_t));
+   uint64_t *bbits LOCAL = xcalloc_array(nwords, sizeof(uint64_t));
+   abits[0] = low;
+
+   jit_scalar_t a, b;
+   a.pointer = abits;
+   b.pointer = bbits;
+   return number_from_jit(width, issigned, a, b);
+}
+
 static vlog_node_t elab_mixed_generics(tree_t comp, vlog_node_t mod,
                                        const elab_ctx_t *ctx)
 {
@@ -2075,19 +2338,50 @@ static vlog_node_t elab_mixed_generics(tree_t comp, vlog_node_t mod,
          return NULL;
       }
 
-      type_t ctype = type_base_recur(tree_type(cg));
+      type_t ctype = tree_type(cg);
+      type_t cbase = type_base_recur(ctype);
       type_t integer = std_type(NULL, STD_INTEGER);
       type_t strtype = std_type(NULL, STD_STRING);
+      type_t real = std_type(NULL, STD_REAL);
 
+      vlog_node_t ptype = vlog_type(d);
+      const data_type_t dt = vlog_subkind(ptype);
       const bool want_string =
          vlog_has_value(d) && vlog_kind(vlog_value(d)) == V_STRING;
+      const bool want_real =
+         dt == DT_REAL || dt == DT_SHORTREAL || dt == DT_REALTIME
+         || (vlog_has_value(d) && vlog_kind(vlog_value(d)) == V_REAL);
+      const int vec_width = elab_vector_param_width(d);
 
-      if (want_string && !type_eq(ctype, strtype)) {
+      if (vec_width < 0) {
+         error_at(tree_loc(cg), "cannot determine the width of Verilog "
+                  "parameter %pQ", vlog_ident(d));
+         return NULL;
+      }
+
+      const bool want_vector = !want_string && !want_real && vec_width > 0;
+
+      if (want_string && !type_eq(cbase, strtype)) {
          error_at(tree_loc(cg), "generic %pI should have type %pT to match "
                   "corresponding Verilog parameter", tree_ident(cg), strtype);
          return NULL;
       }
-      else if (!want_string && !type_eq(ctype, integer)) {
+      else if (want_real && !type_eq(cbase, real)) {
+         error_at(tree_loc(cg), "generic %pI should have type %pT to match "
+                  "corresponding Verilog parameter", tree_ident(cg), real);
+         return NULL;
+      }
+      else if (want_vector && !type_eq(cbase, integer)
+               && !elab_is_logic_vector(ctype)
+               && !(vec_width == 1 && elab_is_logic(ctype))) {
+         error_at(tree_loc(cg), "generic %pI should be a locally static "
+                  "logic or bit vector of width %d to match the "
+                  "corresponding Verilog parameter", tree_ident(cg),
+                  vec_width);
+         return NULL;
+      }
+      else if (!want_string && !want_real && !want_vector
+               && !type_eq(cbase, integer)) {
          error_at(tree_loc(cg), "generic %pI should have type %pT to match "
                   "corresponding Verilog parameter", tree_ident(cg), integer);
          return NULL;
@@ -2097,6 +2391,13 @@ static vlog_node_t elab_mixed_generics(tree_t comp, vlog_node_t mod,
       if (value == NULL)
          fatal_at(tree_loc(ctx->out), "cannot get value of generic %pI",
                   tree_ident(cg));
+      else if (tree_kind(value) == T_OPEN) {
+         // Simplification leaves a non-literal default as an open map.
+         if (!tree_has_value(cg))
+            fatal_at(tree_loc(value), "generic %pI has no default value",
+                     tree_ident(cg));
+         value = tree_value(cg);
+      }
 
       vlog_node_t num;
       if (want_string) {
@@ -2113,6 +2414,84 @@ static vlog_node_t elab_mixed_generics(tree_t comp, vlog_node_t mod,
 
          num = vlog_new(V_STRING);
          vlog_set_number(num, number_from_string(bytes, nchars));
+      }
+      else if (want_real) {
+         double dval;
+         if (!elab_folded_real(value, &dval)) {
+            error_at(tree_loc(value), "generic %pI value is not a locally "
+                     "static real", tree_ident(cg));
+            return NULL;
+         }
+
+         num = vlog_new(V_REAL);
+         vlog_set_dval(num, dval);
+      }
+      else if (want_vector && type_eq(cbase, integer)) {
+         int64_t ival;
+         if (!folded_int(value, &ival)) {
+            error_at(tree_loc(value), "generic %pI value is not a locally "
+                     "static integer", tree_ident(cg));
+            return NULL;
+         }
+
+         const bool issigned = !!(vlog_flags(ptype) & VLOG_F_SIGNED);
+         num = vlog_new(V_NUMBER);
+         vlog_set_number(num, elab_number_from_integer(ival, vec_width,
+                                                       issigned));
+      }
+      else if (want_vector) {
+         const bool scalar = !type_is_array(ctype);
+         int64_t length = 1;
+         if (!scalar && !folded_length(range_of(ctype, 0), &length)) {
+            error_at(tree_loc(value), "generic %pI value is not a locally "
+                     "static vector", tree_ident(cg));
+            return NULL;
+         }
+         else if (length != vec_width) {
+            error_at(tree_loc(value), "generic %pI has length %"PRIi64
+                     " but Verilog parameter %pQ is %d bits wide",
+                     tree_ident(cg), length, vlog_ident(d), vec_width);
+            return NULL;
+         }
+
+         type_t elem = scalar ? ctype : type_elem(ctype);
+         vlog_logic_t *bits LOCAL =
+            xmalloc_array(vec_width, sizeof(vlog_logic_t));
+         const bool downto = !scalar
+            && direction_of(ctype, 0) == RANGE_DOWNTO;
+
+         for (int k = 0; k < vec_width; k++) {
+            unsigned pos = 0;
+            int64_t ipos = 0;
+            const bool ok = scalar
+               ? folded_int(value, &ipos)
+               : elab_static_elem(value, k, &pos);
+            if (!scalar)
+               ipos = pos;
+            if (!ok || ipos < 0
+                || ipos >= type_enum_literals(type_base_recur(elem))) {
+               error_at(tree_loc(value), "generic %pI value is not a locally "
+                        "static logic vector", tree_ident(cg));
+               return NULL;
+            }
+
+            const vlog_logic_t bit =
+               elab_logic_of_enum(type_enum_literal(type_base_recur(elem),
+                                                    ipos));
+            if ((int)bit < 0) {
+               error_at(tree_loc(value), "generic %pI value is not a locally "
+                        "static logic vector", tree_ident(cg));
+               return NULL;
+            }
+
+            const int dest = downto ? vec_width - 1 - k : k;
+            bits[dest] = bit;
+         }
+
+         const bool issigned = !!(vlog_flags(ptype) & VLOG_F_SIGNED);
+         num = vlog_new(V_NUMBER);
+         vlog_set_number(num, elab_number_from_logics(vec_width, bits,
+                                                      issigned));
       }
       else {
          num = vlog_new(V_NUMBER);

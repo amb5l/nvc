@@ -70,6 +70,13 @@ package verilog is
     function to_verilog (value : std_ulogic_vector) return t_logic_array;
     function to_verilog (value : std_ulogic_vector) return t_net_array;
 
+    -- Mixed inout: external 'U' contributes HiZ, and 0/1/X are pull
+    -- strength so a strong driver inside the module wins cleanly.
+    function inout_to_verilog (value : std_ulogic) return t_net_value;
+    function inout_to_verilog (value : std_ulogic_vector) return t_net_array;
+    function inout_to_vhdl (value : t_net_value) return std_ulogic;
+    function inout_to_vhdl (value : t_wire_array) return std_ulogic_vector;
+
     function to_string (value : t_logic_array) return string;
 
     function resize (value : t_logic_array; length : natural) return t_logic_array;

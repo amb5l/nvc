@@ -2955,10 +2955,15 @@ static void put_driving(rt_model_t *m, rt_nexus_t *n, const void *value)
       TRACE("update %s driving value %s", trace_nexus(n), fmt_nexus(n, value));
 
       memcpy(nexus_driving(n), value, n->size * n->width);
-
-      assert(!(n->flags & NET_F_PENDING));
-      n->flags |= NET_F_PENDING;
       n->flags &= ~NET_F_HAS_INITIAL;
+
+      // A conversion process can run again before the effective heap
+      // drains, for example the two directions of a mixed inout port.
+      // The queued update reads this driving value later.
+      if (n->flags & NET_F_PENDING)
+         return;
+
+      n->flags |= NET_F_PENDING;
       heap_insert(m->effective_heap, MAX_RANK - n->rank, n);
    }
    else
