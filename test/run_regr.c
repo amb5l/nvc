@@ -143,6 +143,7 @@ typedef struct _test {
    char      *exit;
    char      *plugin;
    char      *vloglib;
+   char      *eltop;
    unsigned   arrays;
    int        seed;
    double     duration;
@@ -551,6 +552,15 @@ static bool parse_test_list(void)
             }
 
             test->vloglib = strdup(opt + 11);
+         }
+         else if (strncmp(opt, "eltop=", 6) == 0) {
+            if (opt[6] == '\0') {
+               fprintf(stderr, "Error on testlist line %d: missing argument "
+                       "to eltop option in test %s\n", lineno, name);
+               goto out_close;
+            }
+
+            test->eltop = strdup(opt + 6);
          }
          else if (strncmp(opt, "define", 6) == 0) {
             char *value = strchr(opt, '=');
@@ -1052,6 +1062,8 @@ static bool run_test(test_t *test)
 
       push_arg(&args, "-e");
       push_arg(&args, "%s", test->name);
+      if (test->eltop != NULL)
+         push_arg(&args, "%s", test->eltop);
       push_arg(&args, "-O%u", test->olevel);
 
       if (test->flags & F_NOCOLL)
