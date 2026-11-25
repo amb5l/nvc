@@ -97,6 +97,7 @@ const char *jit_exit_name(jit_exit_t exit)
       "SYSCALL", "DIR_FAIL", "LEVEL_TRIGGER", "ENABLE_TRIGGER",
       "DISABLE_TRIGGER", "SCHED_DEPOSIT", "PUT_DRIVER", "SCHED_INACTIVE",
       "GET_COUNTERS", "SCHED_ACTIVE", "SCHED_ZERO",
+      "RESOLVED_OTHERS",
    };
    assert(exit < ARRAY_LEN(names));
    return names[exit];

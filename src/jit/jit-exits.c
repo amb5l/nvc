@@ -903,6 +903,16 @@ void __nvc_do_exit(jit_exit_t which, jit_anchor_t *anchor, jit_scalar_t *args,
       }
       break;
 
+   case JIT_EXIT_RESOLVED_OTHERS:
+      {
+         sig_shared_t *shared = args[0].pointer;
+         int32_t       offset = args[1].integer;
+         int32_t       count  = args[2].integer;
+
+         args[0].pointer = x_resolved_others(shared, offset, count);
+      }
+      break;
+
    case JIT_EXIT_COVER_TOGGLE:
       {
          sig_shared_t *shared = args[0].pointer;

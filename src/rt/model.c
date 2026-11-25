@@ -1265,6 +1265,9 @@ static rt_source_t *add_source(rt_model_t *m, rt_nexus_t *n, source_kind_t kind)
    src->disconnected = 0;
    src->fastqueued   = 0;
    src->sigqueued    = 0;
+   src->boundary     = 0;
+   src->has_open     = 0;
+   src->open_value   = 0;
 
    switch (kind) {
    case SOURCE_DRIVER:
@@ -1466,6 +1469,9 @@ static void clone_source(rt_model_t *m, rt_nexus_t *nexus,
                          rt_source_t *old, int offset)
 {
    rt_source_t *new = add_source(m, nexus, old->tag);
+   new->boundary   = old->boundary;
+   new->has_open   = old->has_open;
+   new->open_value = old->open_value;
 
    switch (old->tag) {
    case SOURCE_PORT:
@@ -4110,6 +4116,25 @@ sig_shared_t *x_init_signal(int64_t count, uint32_t size, jit_scalar_t value,
    return &(s->shared);
 }
 
+static void mark_boundary_driver(rt_nexus_t *n, rt_source_t *src)
+{
+   // A port conversion is one language driving the other. Keep the
+   // undriven value so the far side can contribute nothing.
+   src->boundary = 1;
+
+   if (src->has_open || n->size != 1 || !(n->flags & NET_F_HAS_INITIAL))
+      return;
+
+   const uint8_t *init = nexus_initial(n);
+   for (int i = 1; i < n->width; i++) {
+      if (init[i] != init[0])
+         return;
+   }
+
+   src->open_value = init[0];
+   src->has_open   = 1;
+}
+
 void x_drive_signal(sig_shared_t *ss, uint32_t offset, int32_t count)
 {
    rt_signal_t *s = container_of(ss, rt_signal_t, shared);
@@ -4133,6 +4158,9 @@ void x_drive_signal(sig_shared_t *ss, uint32_t offset, int32_t count)
          s->u.driver.waveforms.value = alloc_value(m, n);
          s->u.driver.proc = proc;
       }
+
+      if (proc != NULL && tree_kind(proc->where) == T_PARAM)
+         mark_boundary_driver(n, s);
 
       count -= n->width;
       assert(count >= 0);
@@ -4650,6 +4678,160 @@ bool x_driving(sig_shared_t *ss, uint32_t offset, int32_t count)
               istr(proc->name), istr(tree_ident(s->where)));
 
    return ntotal == ndriving;
+}
+
+static void resolve_others(rt_model_t *m, rt_nexus_t *n, void *dest,
+                           rt_nexus_t *skip_formal)
+{
+   // An inout port's effective value is its actual. The contribution
+   // from this side is the port source, so read the actual without it.
+   if (skip_formal == NULL && (n->flags & NET_F_INOUT)) {
+      for (rt_source_t *s = n->outputs; s; s = s->chain_output) {
+         if (s->tag == SOURCE_PORT && s->u.port.output != NULL) {
+            resolve_others(m, s->u.port.output, dest, n);
+            return;
+         }
+      }
+   }
+
+   // Resolved value of every source except port-conversion drivers.
+   const size_t valuesz = n->size * (size_t)n->width;
+
+   int nonnull = 0;
+   rt_source_t *s0 = NULL;
+   for (rt_source_t *s = &(n->sources); s; s = s->chain_input) {
+      if (s->boundary || s->disconnected)
+         continue;
+      else if (skip_formal != NULL && s->tag == SOURCE_PORT
+               && s->u.port.input == skip_formal)
+         continue;
+      else if (s->tag == SOURCE_FORCING) {
+         memcpy(dest, value_ptr(n, &(s->u.pseudo.waveforms.value)), valuesz);
+         return;
+      }
+      else if (source_value(n, s) == NULL)
+         continue;
+      else if (s0 == NULL)
+         s0 = s;
+
+      nonnull++;
+   }
+
+   if (nonnull == 0) {
+      if (n->flags & NET_F_HAS_INITIAL)
+         memcpy(dest, nexus_initial(n), valuesz);
+      else {
+         uint8_t open = 0;
+         bool have = false;
+         for (rt_source_t *s = &(n->sources); s; s = s->chain_input) {
+            if (s->boundary && s->has_open) {
+               open = s->open_value;
+               have = true;
+               break;
+            }
+         }
+
+         if (have && n->size == 1)
+            memset(dest, open, n->width);
+         else
+            memset(dest, 0, valuesz);
+      }
+      return;
+   }
+
+   res_memo_t *r = n->signal->resolution;
+   if (r == NULL || ((r->flags & R_IDENT) && nonnull == 1)) {
+      memcpy(dest, source_value(n, s0), valuesz);
+      return;
+   }
+   else if (r->flags & R_COMPOSITE) {
+      memcpy(dest, nexus_effective(n), valuesz);
+      return;
+   }
+   else if ((r->flags & R_MEMO) && nonnull == 1 && n->size == 1) {
+      const uint8_t *p0 = source_value(n, s0);
+      uint8_t *out = dest;
+      for (int j = 0; j < n->width; j++)
+         out[j] = r->tab1[p0[j]];
+      return;
+   }
+   else if ((r->flags & R_MEMO) && nonnull == 2 && n->size == 1) {
+      const uint8_t *p0 = source_value(n, s0);
+      const uint8_t *p1 = NULL;
+      for (rt_source_t *s = s0->chain_input; s; s = s->chain_input) {
+         if (s->boundary || s->disconnected)
+            continue;
+         else if (skip_formal != NULL && s->tag == SOURCE_PORT
+                  && s->u.port.input == skip_formal)
+            continue;
+
+         p1 = source_value(n, s);
+         if (p1 != NULL)
+            break;
+      }
+
+      uint8_t *out = dest;
+      for (int j = 0; j < n->width; j++)
+         out[j] = r->tab2[p0[j]][p1[j]];
+      return;
+   }
+
+   model_thread_t *thread = model_thread(m);
+   const uint32_t mark = tlab_mark(thread->tlab);
+
+   for (int j = 0; j < n->width; j++) {
+#define RESOLVE_OTHERS(type) do {                                       \
+         type vals[nonnull];                                           \
+         unsigned o = 0;                                               \
+         for (rt_source_t *s = s0; s; s = s->chain_input) {            \
+            if (s->boundary || s->disconnected)                       \
+               continue;                                              \
+            else if (skip_formal != NULL && s->tag == SOURCE_PORT    \
+                     && s->u.port.input == skip_formal)              \
+               continue;                                              \
+            const void *data = source_value(n, s);                    \
+            if (data != NULL)                                         \
+               vals[o++] = ((const type *)data)[j];                   \
+         }                                                             \
+         assert(o == (unsigned)nonnull);                              \
+         jit_scalar_t result;                                         \
+         if (!jit_try_call(m->jit, r->closure.handle, &result,        \
+                           r->closure.args[0], vals, nonnull))        \
+            m->force_stop = true;                                     \
+         ((type *)dest)[j] = result.integer;                          \
+      } while (0)
+
+      FOR_ALL_SIZES(n->size, RESOLVE_OTHERS);
+#undef RESOLVE_OTHERS
+   }
+
+   tlab_trim(thread->tlab, mark);
+}
+
+void *x_resolved_others(sig_shared_t *ss, uint32_t offset, int32_t count)
+{
+   rt_signal_t *s = container_of(ss, rt_signal_t, shared);
+   RT_LOCK(s->lock);
+
+   TRACE("resolved others %s offset=%d count=%d",
+         istr(tree_ident(s->where)), offset, count);
+
+   rt_model_t *m = get_model();
+   model_thread_t *thread = model_thread(m);
+   assert(thread->tlab != NULL);
+
+   void *result = tlab_alloc(thread->tlab, (size_t)count * s->nexus.size);
+   uint8_t *p = result;
+
+   rt_nexus_t *n = split_nexus(m, s, offset, count);
+   for (; count > 0; n = n->chain) {
+      resolve_others(m, n, p, NULL);
+      p += n->width * n->size;
+      count -= n->width;
+      assert(count >= 0);
+   }
+
+   return result;
 }
 
 void *x_driving_value(sig_shared_t *ss, uint32_t offset, int32_t count)

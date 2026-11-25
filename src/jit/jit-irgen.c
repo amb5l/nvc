@@ -3854,6 +3854,21 @@ static void irgen_op_driving(jit_irgen_t *g, mir_value_t n)
    j_recv(g, g->map[n.id], 0);
 }
 
+static void irgen_op_resolved_others(jit_irgen_t *g, mir_value_t n)
+{
+   jit_value_t shared = irgen_get_arg_slot(g, n, 0, 0);
+   jit_value_t offset = irgen_get_arg_slot(g, n, 0, 1);
+   jit_value_t count  = irgen_get_arg(g, n, 1);
+
+   j_send(g, 0, shared);
+   j_send(g, 1, offset);
+   j_send(g, 2, count);
+
+   macro_exit(g, JIT_EXIT_RESOLVED_OTHERS);
+
+   j_recv(g, g->map[n.id], 0);
+}
+
 static void irgen_op_driving_value(jit_irgen_t *g, mir_value_t n)
 {
    jit_value_t shared = irgen_get_arg_slot(g, n, 0, 0);
@@ -5146,6 +5161,9 @@ static void irgen_block(jit_irgen_t *g, mir_block_t block)
          break;
       case MIR_OP_RESOLVED:
          irgen_op_resolved(g, n);
+         break;
+      case MIR_OP_RESOLVED_OTHERS:
+         irgen_op_resolved_others(g, n);
          break;
       case MIR_OP_LAST_VALUE:
          irgen_op_last_value(g, n);

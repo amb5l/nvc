@@ -180,6 +180,7 @@ const char *mir_op_string(mir_op_t op)
       [MIR_OP_SCHED_INACTIVE] = "sched inactive",
       [MIR_OP_SCHED_DEPOSIT] = "sched deposit",
       [MIR_OP_PUT_DRIVER] = "put driver",
+      [MIR_OP_RESOLVED_OTHERS] = "resolved others",
       [MIR_OP_GET_COUNTERS] = "get counters",
       [MIR_OP_INSTANCE_INIT] = "instance init",
    };
@@ -1599,6 +1600,7 @@ void mir_annotate(mir_unit_t *mu, const mir_annotate_t *cb, void *ctx)
             break;
 
          case MIR_OP_DRIVING_VALUE:
+         case MIR_OP_RESOLVED_OTHERS:
          case MIR_OP_LAST_ACTIVE:
          case MIR_OP_LAST_EVENT:
             {

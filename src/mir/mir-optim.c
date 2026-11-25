@@ -819,6 +819,7 @@ static void gvn_visit_block(mir_unit_t *mu, mir_block_t block,
       case MIR_OP_LAST_VALUE:
       case MIR_OP_LAST_EVENT:
       case MIR_OP_LAST_ACTIVE:
+      case MIR_OP_RESOLVED_OTHERS:
          opt->gvn->nodevn[node.id] = gvn_new_value(node, opt->gvn);
          break;
       default:

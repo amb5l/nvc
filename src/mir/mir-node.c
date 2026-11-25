@@ -2656,6 +2656,22 @@ void mir_build_sched_deposit(mir_unit_t *mu, mir_value_t target,
               "signal cannot be values argument for sched deposit");
 }
 
+mir_value_t mir_build_resolved_others(mir_unit_t *mu, mir_value_t signal,
+                                      mir_value_t count)
+{
+   mir_type_t type = mir_get_pointer(mu, mir_get_type(mu, signal));
+   mir_stamp_t stamp = mir_get_stamp(mu, signal);
+
+   mir_value_t result = mir_build_2(mu, MIR_OP_RESOLVED_OTHERS, type, stamp,
+                                    signal, count);
+
+   MIR_ASSERT(mir_is_signal(mu, signal), "argument must have signal type");
+   MIR_ASSERT(mir_is_offset(mu, count),
+              "count argument must have offset type");
+
+   return result;
+}
+
 mir_value_t mir_build_resolved(mir_unit_t *mu, mir_value_t signal)
 {
    mir_type_t type = mir_get_type(mu, signal);
