@@ -346,6 +346,82 @@ package body verilog is
         return result;
     end function;
 
+    function inout_to_verilog (value : std_ulogic) return t_net_value is
+        variable result : t_net_value;
+        variable data : t_logic;
+        variable strength0, strength1 : t_strength := Pu;
+    begin
+        case value is
+            when '1' | 'H' =>
+                data := '1';
+            when '0' | 'L' =>
+                data := '0';
+            when 'Z' | 'U' =>
+                data := 'Z';
+                strength0 := HiZ;
+                strength1 := HiZ;
+            when others =>
+                data := 'X';
+        end case;
+        encode_net(result, data, strength0, strength1);
+        return result;
+    end function;
+
+    function inout_to_verilog (value : std_ulogic_vector) return t_net_array is
+        alias xvalue : std_ulogic_vector(1 to value'length) is value;
+        variable result : t_net_array(1 to value'length);
+    begin
+        for i in 1 to value'length loop
+            result(i) := inout_to_verilog(xvalue(i));
+        end loop;
+        return result;
+    end function;
+
+    function inout_to_vhdl (value : t_net_value) return std_ulogic is
+        variable data : t_logic;
+        variable strength0, strength1 : t_strength;
+        variable strength : t_strength;
+    begin
+        decode_net(value, data, strength0, strength1);
+        if data = 'Z' then
+            return 'Z';
+        end if;
+
+        case data is
+            when '0' =>
+                strength := strength0;
+            when '1' =>
+                strength := strength1;
+            when others =>
+                if strength0 > strength1 then
+                    strength := strength0;
+                else
+                    strength := strength1;
+                end if;
+        end case;
+
+        -- The external driver is pull strength. Echoing it back onto
+        -- the VHDL signal fights the testbench, so only a strong (or
+        -- supply) value is reported as the module's contribution.
+        if strength < St then
+            return 'Z';
+        elsif data = 'X' then
+            return 'X';
+        else
+            return to_vhdl(value);
+        end if;
+    end function;
+
+    function inout_to_vhdl (value : t_wire_array) return std_ulogic_vector is
+        alias xvalue : t_wire_array(1 to value'length) is value;
+        variable result : std_ulogic_vector(1 to value'length);
+    begin
+        for i in 1 to value'length loop
+            result(i) := inout_to_vhdl(xvalue(i));
+        end loop;
+        return result;
+    end function;
+
     function to_string (value : t_logic_array) return string is
         constant length  : natural := value'length;
         constant lookup  : string(1 to 4) := "XZ01";

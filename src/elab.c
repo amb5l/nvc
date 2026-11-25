@@ -616,6 +616,74 @@ static tree_t elab_to_verilog(type_t from, type_t to)
    return NULL;
 }
 
+static tree_t elab_inout_verilog(type_t from, type_t to)
+{
+   static struct {
+      const ieee_type_t    from_id;
+      const verilog_type_t to_id;
+      const char *const    func;
+      type_t               from;
+      type_t               to;
+      tree_t               decl;
+   } table[] = {
+      { IEEE_STD_ULOGIC, VERILOG_NET_VALUE,
+        "NVC.VERILOG.INOUT_TO_VERILOG(U)" T_NET_VALUE },
+      { IEEE_STD_ULOGIC_VECTOR, VERILOG_WIRE_ARRAY,
+        "NVC.VERILOG.INOUT_TO_VERILOG(Y)" T_NET_ARRAY },
+      { IEEE_STD_LOGIC_VECTOR, VERILOG_WIRE_ARRAY,
+        "NVC.VERILOG.INOUT_TO_VERILOG(Y)" T_NET_ARRAY },
+   };
+
+   INIT_ONCE({
+         for (int i = 0; i < ARRAY_LEN(table); i++) {
+            table[i].from = ieee_type(table[i].from_id);
+            table[i].to   = verilog_type(table[i].to_id);
+            table[i].decl = verilog_func(ident_new(table[i].func));
+         }
+      });
+
+   for (int i = 0; i < ARRAY_LEN(table); i++) {
+      if (type_eq(table[i].from, from) && type_eq(table[i].to, to))
+         return table[i].decl;
+   }
+
+   return NULL;
+}
+
+static tree_t elab_inout_vhdl(type_t from, type_t to)
+{
+   static struct {
+      const verilog_type_t from_id;
+      const ieee_type_t    to_id;
+      const char *const    func;
+      type_t               from;
+      type_t               to;
+      tree_t               decl;
+   } table[] = {
+      { VERILOG_NET_VALUE, IEEE_STD_LOGIC,
+        "NVC.VERILOG.INOUT_TO_VHDL(" T_NET_VALUE ")U" },
+      { VERILOG_WIRE_ARRAY, IEEE_STD_ULOGIC_VECTOR,
+        "NVC.VERILOG.INOUT_TO_VHDL(" T_WIRE_ARRAY ")Y" },
+      { VERILOG_WIRE_ARRAY, IEEE_STD_LOGIC_VECTOR,
+        "NVC.VERILOG.INOUT_TO_VHDL(" T_WIRE_ARRAY ")Y" },
+   };
+
+   INIT_ONCE({
+         for (int i = 0; i < ARRAY_LEN(table); i++) {
+            table[i].from = verilog_type(table[i].from_id);
+            table[i].to   = ieee_type(table[i].to_id);
+            table[i].decl = verilog_func(ident_new(table[i].func));
+         }
+      });
+
+   for (int i = 0; i < ARRAY_LEN(table); i++) {
+      if (type_eq(table[i].from, from) && type_eq(table[i].to, to))
+         return table[i].decl;
+   }
+
+   return NULL;
+}
+
 static tree_t elab_mixed_binding(tree_t comp, const elab_instance_t *ei)
 {
    assert(tree_kind(comp) == T_COMPONENT);
@@ -665,17 +733,24 @@ static tree_t elab_mixed_binding(tree_t comp, const elab_instance_t *ei)
       const v_port_kind_t mdir = vlog_subkind(mport);
       const port_mode_t cdir = tree_subkind(cport);
 
-      if (mdir != V_PORT_INPUT && mdir != V_PORT_OUTPUT) {
-         error_at(tree_loc(cport), "only input and output ports are supported "
-                  "for mixed language instantiation");
+      const char *vdir = "input";
+      if (mdir == V_PORT_OUTPUT)
+         vdir = "output";
+      else if (mdir == V_PORT_INOUT)
+         vdir = "inout";
+
+      if (mdir != V_PORT_INPUT && mdir != V_PORT_OUTPUT
+          && mdir != V_PORT_INOUT) {
+         error_at(tree_loc(cport), "only input, output and inout ports are "
+                  "supported for mixed language instantiation");
          return NULL;
       }
       else if (!(mdir == V_PORT_INPUT && cdir == PORT_IN)
-               && !(mdir == V_PORT_OUTPUT && cdir == PORT_OUT)) {
+               && !(mdir == V_PORT_OUTPUT && cdir == PORT_OUT)
+               && !(mdir == V_PORT_INOUT && cdir == PORT_INOUT)) {
          error_at(tree_loc(cport), "VHDL port direction %s does not match "
                   "corresponding Verilog port %pQ which is declared as %s",
-                  port_mode_str(cdir), vlog_ident(mport),
-                  mdir == V_PORT_INPUT ? "input" : "output");
+                  port_mode_str(cdir), vlog_ident(mport), vdir);
          return NULL;
       }
 
@@ -685,7 +760,32 @@ static tree_t elab_mixed_binding(tree_t comp, const elab_instance_t *ei)
       tree_t conv = tree_new(T_CONV_FUNC);
       tree_set_loc(conv, tree_loc(cport));
 
-      if (mdir == V_PORT_INPUT) {
+      if (mdir == V_PORT_INOUT) {
+         tree_t to_vlog = elab_inout_verilog(btype, vtype);
+         tree_t to_vhdl = elab_inout_vhdl(vtype, btype);
+         if (to_vlog == NULL || to_vhdl == NULL) {
+            error_at(tree_loc(cport), "cannot connect VHDL signal with type "
+                     "%pT to Verilog inout port %pQ", btype,
+                     vlog_ident(mport));
+            return NULL;
+         }
+
+         tree_set_ref(conv, to_vlog);
+         tree_set_ident(conv, tree_ident(to_vlog));
+         tree_set_type(conv, type_result(tree_type(to_vlog)));
+         tree_set_value(conv, make_ref(cport));
+
+         tree_t back = tree_new(T_CONV_FUNC);
+         tree_set_loc(back, tree_loc(cport));
+         tree_set_ref(back, to_vhdl);
+         tree_set_ident(back, tree_ident(to_vhdl));
+         tree_set_type(back, type_result(tree_type(to_vhdl)));
+         tree_set_value(back, make_ref(vport));
+
+         add_param(bind, conv, P_NAMED, back);
+         have_named = true;
+      }
+      else if (mdir == V_PORT_INPUT) {
          tree_t func = elab_to_verilog(btype, vtype);
          if (func == NULL) {
             error_at(tree_loc(cport), "cannot connect VHDL signal with type "
