@@ -806,6 +806,13 @@ static void vlog_check_gate_inst(vlog_node_t v)
    const int nparams = vlog_params(v);
    for (int i = 0; i < nparams; i++)
       vlog_check_expr(vlog_param(v, i));
+
+   const int nranges = vlog_ranges(v);
+   for (int i = 0; i < nranges; i++)
+      vlog_check(vlog_range(v, i));
+
+   if (nranges > 1)
+      error_at(vlog_loc(v), "multi-dimensional gate arrays are not supported");
 }
 
 static void vlog_check_inst_list(vlog_node_t v)
