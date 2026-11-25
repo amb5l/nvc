@@ -1517,3 +1517,4 @@ vlog53          verilog
 vlog54          verilog
 gate3           verilog
 hier1           shell
+vlog55          verilog
