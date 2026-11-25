@@ -63,6 +63,7 @@ extern loc_t yylloc;
 
 static vlog_node_t p_statement_or_null(void);
 static vlog_node_t p_expression(void);
+static void scale_delay_number(vlog_node_t v);
 static vlog_node_t p_constant_expression(void);
 static vlog_node_t p_mintypmax_expression(void);
 static vlog_node_t p_primary(void);
@@ -2439,11 +2440,20 @@ static vlog_node_t p_delay_control(void)
    consume(tHASH);
 
    vlog_node_t v = vlog_new(V_DELAY_CONTROL);
+   // Femtoseconds per time unit. Identifiers are scaled when lowered;
+   // a bare number or time literal is already scaled by p_delay_value.
+   // IEEE 1800-2017 22.7.
+   vlog_set_ival(v, time_scale == 0 ? 1 : (int64_t)time_scale);
 
    if (peek() != tLPAREN)
       vlog_set_value(v, p_delay_value());
-   else
-      vlog_set_value(v, p_mintypmax_expression());
+   else {
+      vlog_node_t expr = p_mintypmax_expression();
+      // #(100) is a number, not a delay_value, so scale it here.
+      if (vlog_kind(expr) == V_NUMBER || vlog_kind(expr) == V_MIN_TYP_MAX)
+         scale_delay_number(expr);
+      vlog_set_value(v, expr);
+   }
 
    vlog_set_loc(v, CURRENT_LOC);
    return v;
@@ -2474,6 +2484,7 @@ static vlog_node_t p_delay3(void)
    consume(tHASH);
 
    vlog_node_t v = vlog_new(V_DELAY_CONTROL);
+   vlog_set_ival(v, time_scale == 0 ? 1 : (int64_t)time_scale);
 
    if (peek() != tLPAREN)
       vlog_set_value(v, p_delay_value());
