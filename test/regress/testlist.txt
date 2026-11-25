@@ -1512,3 +1512,6 @@ vlog52          verilog,gold
 udp3            verilog
 issue1730       verilog
 issue1724       normal,2008
+specify6        verilog
+vlog53          verilog
+vlog54          verilog
