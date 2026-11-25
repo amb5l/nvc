@@ -1538,3 +1538,4 @@ vlog72          verilog
 vlog73          verilog
 vlog74          verilog
 vlog75          mixed
+vlog76          mixed,veriloglib=unisim,eltop=unisim.glbl

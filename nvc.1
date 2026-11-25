@@ -51,8 +51,10 @@ module or program.  VHDL architectures can be specified with
 Multiple design units may be specified, resulting in an elaborated
 hierarchy with multiple roots.
 .\" -r
-.It Fl r Bo Ar unit Bc
-Execute a previously elaborated top level design unit.
+.It Fl r Bo Ar unit ... Bc
+Execute a previously elaborated top level design unit.  When several
+units were elaborated, the extra roots may be named again here.  The
+first unit is the one that names the elaborated design.
 .\" -i
 .It Fl i Bo Ar unit Bc
 Start an interactive TCL shell, optionally with

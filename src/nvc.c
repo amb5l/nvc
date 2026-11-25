@@ -507,19 +507,63 @@ static void parse_generic(const char *str)
    elab_set_generic(copy, split + 1);
 }
 
-static void set_top_level(char **argv, int next_cmd, cmd_state_t *state)
+static void set_top_level(char **argv, int next_cmd, cmd_state_t *state,
+                          bool multi)
 {
    if (optind == next_cmd) {
       if (state->top_level == NULL)
          fatal("missing top-level unit name");
    }
-   else if (optind != next_cmd - 1)
+   else if (!multi && optind != next_cmd - 1)
       fatal("excess positional argument '%s' following top-level unit name",
             argv[optind + 1]);
    else {
       state->top_level_arg = argv[optind];
       state->top_level = to_unit_name(argv[optind]);
+      if (multi)
+         optind++;
    }
+}
+
+static bool unit_is_instance(ident_t have, ident_t unit)
+{
+   if (ident_casecmp(have, unit))
+      return true;
+   else if (ident_len(have) > ident_len(unit)
+            && ident_starts_with(have, unit)) {
+      const char next = ident_char(have, ident_len(unit));
+      return next == '#' || next == '.';
+   }
+   else
+      return false;
+}
+
+static bool root_is_unit(tree_t b, ident_t unit)
+{
+   if (tree_kind(b) != T_BLOCK)
+      return false;
+
+   const int ndecls = tree_decls(b);
+   for (int i = 0; i < ndecls; i++) {
+      tree_t d = tree_decl(b, i);
+      if (tree_kind(d) != T_HIER || !tree_has_ref(d))
+         continue;
+
+      tree_t ref = tree_ref(d);
+      if (unit_is_instance(tree_ident(ref), unit))
+         return true;
+
+      if (tree_kind(ref) == T_ARCH) {
+         tree_t ent = tree_primary(ref);
+         if (ident_casecmp(tree_ident(ent), unit))
+            return true;
+      }
+
+      if (tree_has_ident2(d) && unit_is_instance(tree_ident2(d), unit))
+         return true;
+   }
+
+   return ident_casecmp(tree_ident(b), ident_rfrom(unit, '.'));
 }
 
 static void parse_cover_options(const char *str, cover_mask_t *mask,
@@ -1111,7 +1155,7 @@ static int run_cmd(int argc, char **argv, cmd_state_t *state)
          nplusargs++, optind++;
    }
 
-   set_top_level(argv, next_cmd, state);
+   set_top_level(argv, next_cmd, state, true);
 
    ident_t ename = ident_prefix(state->top_level, well_known(W_ELAB), '.');
 
@@ -1122,6 +1166,32 @@ static int run_cmd(int argc, char **argv, cmd_state_t *state)
 
    tree_t top = tree_from_object(obj);
    assert(top != NULL);
+
+   // Further names are the other roots passed to elaboration, for
+   // example "nvc -r tb unisim.GLBL".
+   for (; optind < next_cmd; optind++) {
+      const char *arg = argv[optind];
+      lib_t lib = state->work;
+      ident_t name, lib_i, unit_i;
+      if (split_lib_unit(arg, &lib_i, &unit_i)) {
+         lib = lib_require(lib_i);
+         name = ident_prefix(lib_i, unit_i, '.');
+      }
+      else
+         name = to_unit_name(arg);
+
+      if (lib_get_generic(lib, name, NULL) == NULL)
+         fatal("cannot find unit %pI in library %pI", name, lib_name(lib));
+
+      const int nroots = tree_stmts(top);
+      bool found = false;
+      for (int i = 0; i < nroots && !found; i++)
+         found = root_is_unit(tree_stmt(top, i), name);
+
+      if (!found)
+         fatal("%s is not a root of elaborated design %s", arg,
+               istr(state->top_level));
+   }
 
    opt_set_int(OPT_NO_COLLAPSE, meta->no_collapse);
 
@@ -1142,7 +1212,7 @@ static int run_cmd(int argc, char **argv, cmd_state_t *state)
          gtkw_fname = tmp2;
       }
 
-      wave_include_file(argv[optind]);
+         wave_include_file(state->top_level_arg);
       dumper = wave_dumper_new(wave_fname, gtkw_fname, top, wave_fmt);
    }
    else if (gtkw_fname != NULL)
@@ -1740,7 +1810,7 @@ static int interact_cmd(int argc, char **argv, cmd_state_t *state)
 
 #ifdef ENABLE_TCL
    if (optind < next_cmd)
-      set_top_level(argv, next_cmd, state);
+      set_top_level(argv, next_cmd, state, false);
 
    tree_t top = NULL;
    if (state->top_level != NULL) {
@@ -2052,7 +2122,7 @@ static int cover_export_cmd(int argc, char **argv, cmd_state_t *state)
    if (looks_like_file)
       cover = merge_coverage_files(argc, next_cmd, argv, 0, MERGE_UNION);
    else {
-      set_top_level(argv, next_cmd, state);
+      set_top_level(argv, next_cmd, state, false);
 
       char *fname LOCAL = xasprintf("_%s.elab.covdb", istr(state->top_level));
       fbuf_t *f = lib_fbuf_open(state->work, fname, FBUF_IN, FBUF_CS_NONE);
