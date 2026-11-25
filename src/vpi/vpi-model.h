@@ -34,4 +34,10 @@ vpiHandle vpi_bind_foreign(ident_t name, vlog_node_t where);
 void vpi_call_foreign(vpiHandle handle, jit_scalar_t *args, tlab_t *tlab);
 PLI_INT32 vpi_func_type(ident_t name);
 
+// $sformatf returns a string in the low bytes of a vector this wide.
+#define VPI_SFORMAT_BITS (256 * 8)
+
+bool vpi_net_bytes(vpiHandle handle, const uint8_t **bytes, int *width);
+void vpi_return_string(const char *str);
+
 #endif  // _VPI_MODEL_H

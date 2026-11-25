@@ -1450,7 +1450,9 @@ static mir_value_t vlog_lower_sys_tfcall(vlog_gen_t *g, vlog_node_t v)
 
    mir_type_t type = MIR_NULL_TYPE;
    if (vlog_kind(v) == V_SYS_FCALL) {
-      switch (vpi_func_type(vlog_ident(v))) {
+      if (icmp(vlog_ident(v), "$sformatf"))
+         type = mir_vec4_type(g->mu, VPI_SFORMAT_BITS, false);
+      else switch (vpi_func_type(vlog_ident(v))) {
       case vpiRealFunc:
          type = mir_double_type(g->mu);
          break;
