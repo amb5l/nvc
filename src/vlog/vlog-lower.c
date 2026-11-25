@@ -2042,18 +2042,42 @@ static mir_value_t vlog_lower_rvalue(vlog_gen_t *g, vlog_node_t v)
    return vlog_lower_with_context(g, v, MIR_NULL_TYPE);
 }
 
-static mir_value_t vlog_lower_time(vlog_gen_t *g, vlog_node_t v)
+static mir_value_t vlog_lower_time(vlog_gen_t *g, vlog_node_t v, int64_t scale)
 {
    mir_type_t t_time = mir_time_type(g->mu);
 
+   if (scale < 1)
+      scale = 1;
+
+   // A number or time literal was multiplied by the time unit when it
+   // was parsed. A parameter, localparam, or variable is still in time
+   // units (IEEE 1800-2017 22.7) and is scaled here.
    if (vlog_kind(v) == V_NUMBER) {
       number_t num = vlog_number(v);
       return mir_const(g->mu, t_time, number_integer(num));
    }
-   else {
-      mir_value_t value = vlog_lower_rvalue(g, v);
-      return vlog_lower_cast(g, t_time, value);
+
+   mir_value_t value = vlog_lower_rvalue(g, v);
+   if (vlog_kind(v) == V_REF && scale != 1) {
+      if (mir_is(g->mu, value, MIR_TYPE_REAL)) {
+         mir_type_t t_real = mir_get_type(g->mu, value);
+         value = mir_build_mul(g->mu, t_real, value,
+                               mir_const_real(g->mu, t_real, (double)scale));
+      }
+      else {
+         value = vlog_lower_cast(g, t_time, value);
+         return mir_build_mul(g->mu, t_time, value,
+                              mir_const(g->mu, t_time, scale));
+      }
    }
+
+   return vlog_lower_cast(g, t_time, value);
+}
+
+static mir_value_t vlog_lower_delay(vlog_gen_t *g, vlog_node_t delay)
+{
+   assert(vlog_kind(delay) == V_DELAY_CONTROL);
+   return vlog_lower_time(g, vlog_value(delay), vlog_ival(delay));
 }
 
 static mir_value_t vlog_or_triggers(vlog_gen_t *g, int n, ...)
@@ -2310,7 +2334,7 @@ static void vlog_lower_timing(vlog_gen_t *g, vlog_node_t v, gen_stack_t *gs)
       {
          // A delay can be a vector, an integer, or a real. vlog_lower_time
          // converts each of those to a time; a direct cast does not.
-         mir_value_t cast = vlog_lower_time(g, vlog_value(ctrl));
+         mir_value_t cast = vlog_lower_delay(g, ctrl);
 
          int64_t dconst;
          if (mir_get_const(g->mu, cast, &dconst) && dconst == 0)
@@ -2377,7 +2401,7 @@ static void vlog_lower_blocking_assignment(vlog_gen_t *g, vlog_node_t v)
       vlog_node_t delay = vlog_delay(v);
       assert(vlog_kind(delay) == V_DELAY_CONTROL);
 
-      mir_build_sched_process(g->mu, vlog_lower_time(g, vlog_value(delay)));
+      mir_build_sched_process(g->mu, vlog_lower_delay(g, delay));
 
       mir_block_t delay_bb = mir_add_block(g->mu);
       mir_build_wait(g->mu, delay_bb);
@@ -2600,7 +2624,7 @@ static void vlog_lower_non_blocking_assignment(vlog_gen_t *g, vlog_node_t v)
       vlog_node_t delay = vlog_delay(v);
       assert(vlog_kind(delay) == V_DELAY_CONTROL);
 
-      after = vlog_lower_time(g, vlog_value(delay));
+      after = vlog_lower_delay(g, delay);
    }
    else
       after = mir_const(g->mu, t_time, 0);
@@ -3444,7 +3468,7 @@ static void vlog_lower_assign_process(vlog_gen_t *g, vlog_node_t v)
       vlog_node_t delay = vlog_delay(v);
       assert(vlog_kind(delay) == V_DELAY_CONTROL);
 
-      after = vlog_lower_time(g, vlog_value(delay));
+      after = vlog_lower_delay(g, delay);
    }
 
    for (int i = 0, offset = 0; i < nlvalues; offset += lvalues[i].size, i++) {
