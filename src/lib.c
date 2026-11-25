@@ -989,12 +989,9 @@ tree_t lib_get_allow_error(lib_t lib, ident_t ident, bool *error)
    if (lu != NULL) {
       *error = lu->error;
 
-      tree_t tree = tree_from_object(lu->object);
-      if (tree == NULL)
-         fatal_at(&lu->object->loc, "%s is not a VHDL design unit",
-                  istr(lu->name));
-
-      return tree;
+      // A Verilog unit in this library is not visible as a VHDL design
+      // unit. Callers such as "use lib.all" skip it.
+      return tree_from_object(lu->object);
    }
    else {
       *error = false;
