@@ -143,6 +143,9 @@ typedef struct _rt_source {
    unsigned        fastqueued : 1;
    unsigned        sigqueued : 1;
    unsigned        was_active : 1;
+   unsigned        boundary : 1;
+   unsigned        has_open : 1;
+   unsigned        open_value : 8;
    union {
       rt_port_t      port;
       rt_driver_t    driver;

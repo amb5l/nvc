@@ -74,6 +74,7 @@ void x_push_scope(tree_t where, int32_t size, rt_scope_kind_t kind);
 void x_pop_scope(void);
 bool x_driving(sig_shared_t *ss, uint32_t offset, int32_t count);
 void *x_driving_value(sig_shared_t *ss, uint32_t offset, int32_t count);
+void *x_resolved_others(sig_shared_t *ss, uint32_t offset, int32_t count);
 void x_disconnect(sig_shared_t *ss, uint32_t offset, int32_t count,
                   int64_t after, int64_t reject);
 void x_sched_force(sig_shared_t *ss, uint32_t offset, int32_t count,

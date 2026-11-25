@@ -349,13 +349,25 @@ package body verilog is
     function inout_to_verilog (value : std_ulogic) return t_net_value is
         variable result : t_net_value;
         variable data : t_logic;
-        variable strength0, strength1 : t_strength := Pu;
+        variable strength0, strength1 : t_strength := St;
     begin
         case value is
-            when '1' | 'H' =>
+            when '1' =>
                 data := '1';
-            when '0' | 'L' =>
+            when 'H' =>
+                data := '1';
+                strength0 := We;
+                strength1 := We;
+            when '0' =>
                 data := '0';
+            when 'L' =>
+                data := '0';
+                strength0 := We;
+                strength1 := We;
+            when 'W' =>
+                data := 'X';
+                strength0 := We;
+                strength1 := We;
             when 'Z' | 'U' =>
                 data := 'Z';
                 strength0 := HiZ;
@@ -400,15 +412,23 @@ package body verilog is
                 end if;
         end case;
 
-        -- The external driver is pull strength. Echoing it back onto
-        -- the VHDL signal fights the testbench, so only a strong (or
-        -- supply) value is reported as the module's contribution.
-        if strength < St then
+        -- Report the module's own drivers. Weaker than strong becomes
+        -- H/L/W so a strong value on the VHDL pin wins the resolution,
+        -- and a strong conflict is X rather than the output-port 'U'.
+        if data = 'Z' or strength = HiZ then
             return 'Z';
-        elsif data = 'X' then
-            return 'X';
+        elsif strength < St then
+            case data is
+                when '0' => return 'L';
+                when '1' => return 'H';
+                when others => return 'W';
+            end case;
+        elsif data = '0' then
+            return '0';
+        elsif data = '1' then
+            return '1';
         else
-            return to_vhdl(value);
+            return 'X';
         end if;
     end function;
 

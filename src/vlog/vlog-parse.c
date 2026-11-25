@@ -5708,6 +5708,7 @@ static vlog_node_t p_n_terminal_gate_instance(vlog_gate_kind_t kind,
 
    vlog_node_t v = vlog_new(V_GATE_INST);
    vlog_set_subkind(v, kind);
+   vlog_add_param(v, st);
 
    p_gate_instance_name(v);
 

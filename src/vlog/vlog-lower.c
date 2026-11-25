@@ -3597,13 +3597,14 @@ static void vlog_lower_gate_array(vlog_gen_t *g, vlog_node_t v, int ninst)
    for (int bit = 0; bit < ninst; bit++) {
       bool negate = false;
       uint8_t strength = ST_STRONG;
+      if (first_term > 0)
+         strength = vlog_subkind(vlog_param(v, first_term - 1));
       mir_value_t value = MIR_NULL_VALUE;
       const vlog_gate_kind_t kind = vlog_subkind(v);
 
       switch (kind) {
       case V_GATE_PULLUP:
       case V_GATE_PULLDOWN:
-         strength = vlog_subkind(vlog_param(v, 0));
          value = mir_const_vec(g->mu, t_logic, kind == V_GATE_PULLUP, 0);
          break;
 
@@ -3742,12 +3743,13 @@ static void vlog_lower_gate_inst(vlog_gen_t *g, vlog_node_t v)
 
    bool negate = false;
    uint8_t strength = ST_STRONG;
+   if (first_term > 0)
+      strength = vlog_subkind(vlog_param(v, first_term - 1));
    mir_value_t value = MIR_NULL_VALUE;
    const vlog_gate_kind_t kind = vlog_subkind(v);
    switch (kind) {
    case V_GATE_PULLUP:
    case V_GATE_PULLDOWN:
-      strength = vlog_subkind(vlog_param(v, 0));
       value = mir_const_vec(g->mu, t_logic, kind == V_GATE_PULLUP, 0);
       break;
 
@@ -4621,16 +4623,27 @@ static void vlog_lower_converter(mir_unit_t *mu, tree_t cf)
 
    mir_value_t pkg = mir_build_link_package(mu, well_known(W_NVC_VERILOG));
 
-   mir_value_t count = MIR_NULL_VALUE;
-   if (mir_is(mu, in, MIR_TYPE_UARRAY)) {
+   // Each direction contributes only the drivers from its own
+   // language. The opposite conversion's driver is excluded so a
+   // weak pull is visible and a released pin does not keep the echo.
+   const bool is_array = mir_is(mu, in, MIR_TYPE_UARRAY);
+   mir_value_t count;
+   if (is_array) {
       count = mir_build_uarray_len(mu, in, 0);
       in = mir_build_unwrap(mu, in);
    }
+   else
+      count = mir_const(mu, t_offset, 1);
 
-   mir_value_t resolved = mir_build_resolved(mu, in);
+   // Inout conversions must not read their own echo. Input and
+   // output conversions read the resolved value, as before.
+   const bool inout = strstr(istr(func), "INOUT_TO") != NULL;
+   mir_value_t resolved = inout
+      ? mir_build_resolved_others(mu, in, count)
+      : mir_build_resolved(mu, in);
 
    mir_value_t arg;
-   if (!mir_is_null(count)) {
+   if (is_array) {
       mir_dim_t dims[] = {
          { .left  = mir_const(mu, t_offset, 1),
            .right = count,
@@ -4639,10 +4652,8 @@ static void vlog_lower_converter(mir_unit_t *mu, tree_t cf)
       };
       arg = mir_build_wrap(mu, resolved, dims, 1);
    }
-   else {
+   else
       arg = mir_build_load(mu, resolved);
-      count = mir_const(mu, t_offset, 1);
-   }
 
    mir_value_t args[] = { pkg, arg };
 
