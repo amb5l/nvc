@@ -1144,6 +1144,8 @@ static bool run_test(test_t *test)
          push_arg(&args, "--shuffle");
 
       push_arg(&args, "%s", test->name);
+      if (test->eltop != NULL)
+         push_arg(&args, "%s", test->eltop);
    }
 
    run_status_t status = run_cmd(outf, &args);

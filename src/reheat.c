@@ -109,7 +109,15 @@ void reheat(tree_t top, unit_registry_t *ur, mir_context_t *mc,
       .instances = hset_new(16),
    };
 
-   reheat_block(tree_stmt(top, 0), &ctx);
+   // A design can have several roots. The later ones are still part of
+   // the hierarchy: a VHDL testbench elaborates glbl beside it so that
+   // Verilog instances can read glbl.GSR.
+   const int nroots = tree_stmts(top);
+   for (int i = 0; i < nroots; i++) {
+      tree_t s = tree_stmt(top, i);
+      if (tree_kind(s) == T_BLOCK)
+         reheat_block(s, &ctx);
+   }
 
    hset_free(ctx.instances);
 }
