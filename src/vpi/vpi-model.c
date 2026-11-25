@@ -1622,6 +1622,59 @@ void vpi_call_foreign(vpiHandle handle, jit_scalar_t *args, tlab_t *tlab)
               call->callback->systf.tfname);
 }
 
+bool vpi_net_bytes(vpiHandle handle, const uint8_t **bytes, int *width)
+{
+   c_vpiObject *obj = from_handle(handle);
+   if (obj == NULL)
+      return false;
+   else if (obj->type != vpiNet && obj->type != vpiReg
+            && obj->type != vpiRegArray)
+      return false;
+
+   c_abstractDecl *decl = is_abstractDecl(obj);
+   if (decl == NULL)
+      return false;
+
+   vlog_node_t type = vlog_get_type(decl->where);
+   if (type != NULL && vlog_kind(type) == V_DATA_TYPE
+       && vlog_subkind(type) == DT_REAL)
+      return false;
+
+   sig_shared_t **ss = vpi_get_ptr(decl);
+   rt_signal_t *s = container_of(*ss, rt_signal_t, shared);
+
+   *bytes = (const uint8_t *)signal_value(s);
+   *width = signal_width(s);
+   return true;
+}
+
+void vpi_return_string(const char *str)
+{
+   // The characters sit in the low bytes. A later assignment to a
+   // narrower target keeps the right-hand end, which is how a string
+   // is truncated.
+   vpi_context_t *c = vpi_context();
+   const int width = VPI_SFORMAT_BITS;
+   const int nwords = (width + 63) / 64;
+
+   uint64_t *mem = jit_mspace_alloc(nwords * 2 * sizeof(uint64_t));
+   memset(mem, 0, nwords * 2 * sizeof(uint64_t));
+
+   uint64_t *abits = mem;
+   const int len = strlen(str);
+   const int maxchars = width / 8;
+   const int use = len > maxchars ? maxchars : len;
+   const char *start = str + (len - use);
+
+   for (int i = 0; i < use; i++) {
+      const int bit = (use - 1 - i) * 8;
+      abits[bit / 64] |= (uint64_t)(uint8_t)start[i] << (bit % 64);
+   }
+
+   c->args[0].pointer = abits;
+   c->args[1].pointer = abits + nwords;
+}
+
 PLI_INT32 vpi_func_type(ident_t name)
 {
    vpi_context_t *c = vpi_context();

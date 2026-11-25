@@ -24,6 +24,9 @@
 #include "rt/model.h"
 #include "svrand.h"
 #include "thread.h"
+#include "vlog/vlog-node.h"
+#include "vlog/vlog-number.h"
+#include "vpi/vpi-model.h"
 #include "vpi/vpi-priv.h"
 
 #include <assert.h>
@@ -170,6 +173,70 @@ static void format_number(ostream_t *out, vpiHandle it, char radix, int fwidth,
    vpi_release_handle(arg);
 }
 
+static void format_one_strength(text_buf_t *tb, int logic, int s0, int s1)
+{
+   // A reg stores no strength. Display it as strong, which is what
+   // %v does for a variable.
+   if (s0 == V_STRENGTH_HIGHZ && s1 == V_STRENGTH_HIGHZ
+       && (logic == LOGIC_0 || logic == LOGIC_1))
+      s0 = s1 = V_STRENGTH_STRONG;
+
+   static const char *map[] = {
+      "Hi", "Sm", "Me", "We", "La", "Pu", "St", "Su"
+   };
+
+   if (logic == LOGIC_Z)
+      tb_cat(tb, "HiZ");
+   else if (logic == LOGIC_0)
+      tb_printf(tb, "%s0", map[s0]);
+   else if (logic == LOGIC_1)
+      tb_printf(tb, "%s1", map[s1]);
+   else if (s0 == s1)
+      tb_printf(tb, "%sX", map[s0]);
+   else
+      tb_printf(tb, "%c%cX", map[s0][0], map[s1][0]);
+}
+
+static void format_strength(ostream_t *out, vpiHandle it)
+{
+   vpiHandle arg = vpi_scan(it);
+   if (arg == NULL)
+      return;
+
+   LOCAL_TEXT_BUF tb = tb_new();
+
+   const uint8_t *bytes;
+   int width;
+   if (vpi_net_bytes(arg, &bytes, &width)) {
+      for (int i = 0; i < width; i++) {
+         const int logic = bytes[i] & 3;
+         format_one_strength(tb, logic, STRENGTH0(bytes[i]),
+                             STRENGTH1(bytes[i]));
+      }
+   }
+   else {
+      s_vpi_value argval = { .format = vpiBinStrVal };
+      vpi_get_value(arg, &argval);
+
+      if (!vpi_chk_error(NULL) && argval.value.str != NULL) {
+         for (const char *p = argval.value.str; *p != '\0'; p++) {
+            int logic;
+            switch (*p) {
+            case '0': logic = LOGIC_0; break;
+            case '1': logic = LOGIC_1; break;
+            case 'z': logic = LOGIC_Z; break;
+            default:  logic = LOGIC_X; break;
+            }
+            format_one_strength(tb, logic, V_STRENGTH_STRONG,
+                                V_STRENGTH_STRONG);
+         }
+      }
+   }
+
+   ostream_puts(out, tb_get(tb));
+   vpi_release_handle(arg);
+}
+
 static void format_char(ostream_t *out, vpiHandle it, int fwidth)
 {
    vpiHandle arg = vpi_scan(it);
@@ -230,6 +297,9 @@ static void interpret_format(ostream_t *out, const char *fmt, vpiHandle it)
             break;
          case 'c':
             format_char(out, it, fwidth);
+            break;
+         case 'v':
+            format_strength(out, it);
             break;
          case '%':
             ostream_putc(out, '%');
@@ -708,6 +778,73 @@ static PLI_INT32 fgets_tf(PLI_BYTE8 *userdata)
    if (fd_arg != NULL) vpi_release_handle(fd_arg);
    if (str_arg != NULL) vpi_release_handle(str_arg);
    vpi_release_handle(argv);
+   vpi_release_handle(call);
+   return 0;
+}
+
+static void format_call(text_buf_t *tb, vpiHandle argv)
+{
+   vpiHandle fmt_arg = vpi_scan(argv);
+   if (fmt_arg == NULL)
+      return;
+
+   s_vpi_value fmt = { .format = vpiStringVal };
+   vpi_get_value(fmt_arg, &fmt);
+
+   const char *text = fmt.value.str != NULL ? fmt.value.str : "";
+   char *copy LOCAL = xstrdup(text);
+
+   ostream_t os = {
+      .callback = tb_ostream_write,
+      .context = tb,
+      .charset = CHARSET_ISO88591,
+   };
+
+   interpret_format(&os, copy, argv);
+   vpi_release_handle(fmt_arg);
+}
+
+static PLI_INT32 sformat_tf(PLI_BYTE8 *userdata)
+{
+   vpiHandle call = vpi_handle(vpiSysTfCall, NULL);
+   assert(call != NULL);
+
+   vpiHandle argv = vpi_iterate(vpiArgument, call);
+   vpiHandle dest = vpi_scan(argv);
+
+   if (dest != NULL) {
+      LOCAL_TEXT_BUF tb = tb_new();
+      format_call(tb, argv);
+
+      s_vpi_value value = {
+         .format = vpiStringVal,
+         .value = { .str = (PLI_BYTE8 *)tb_get(tb) },
+      };
+      vpi_put_value(dest, &value, NULL, vpiNoDelay);
+      vpi_release_handle(dest);
+   }
+
+   if (argv != NULL)
+      vpi_release_handle(argv);
+   vpi_release_handle(call);
+   return 0;
+}
+
+static PLI_INT32 sformatf_tf(PLI_BYTE8 *userdata)
+{
+   vpiHandle call = vpi_handle(vpiSysTfCall, NULL);
+   assert(call != NULL);
+
+   vpiHandle argv = vpi_iterate(vpiArgument, call);
+
+   LOCAL_TEXT_BUF tb = tb_new();
+   if (argv != NULL)
+      format_call(tb, argv);
+
+   vpi_return_string(tb_get(tb));
+
+   if (argv != NULL)
+      vpi_release_handle(argv);
    vpi_release_handle(call);
    return 0;
 }
@@ -1201,6 +1338,17 @@ static s_vpi_systf_data builtins[] = {
       .tfname    = "$writeo",
       .calltf    = write_tf,
       .user_data = "o"
+   },
+   {
+      .type   = vpiSysTask,
+      .tfname = "$sformat",
+      .calltf = sformat_tf
+   },
+   {
+      .type        = vpiSysFunc,
+      .tfname      = "$sformatf",
+      .sysfunctype = vpiIntFunc,
+      .calltf      = sformatf_tf
    },
    {
       .type   = vpiSysTask,
