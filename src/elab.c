@@ -2264,6 +2264,32 @@ static number_t elab_number_from_logics(int width, const vlog_logic_t *bits,
    return number_from_jit(width, issigned, a, b);
 }
 
+static number_t elab_number_from_integer(int64_t value, int width,
+                                         bool issigned)
+{
+   // An integer generic is a 32-bit pattern, zero-extended to the
+   // Verilog parameter width. Sized parameters that still use an
+   // integer override depend on this.
+   const uint64_t low = (uint32_t)value;
+
+   if (width <= 64) {
+      jit_scalar_t a, b;
+      a.integer = low;
+      b.integer = 0;
+      return number_from_jit(width, issigned, a, b);
+   }
+
+   const int nwords = (width + 63) / 64;
+   uint64_t *abits LOCAL = xcalloc_array(nwords, sizeof(uint64_t));
+   uint64_t *bbits LOCAL = xcalloc_array(nwords, sizeof(uint64_t));
+   abits[0] = low;
+
+   jit_scalar_t a, b;
+   a.pointer = abits;
+   b.pointer = bbits;
+   return number_from_jit(width, issigned, a, b);
+}
+
 static vlog_node_t elab_mixed_generics(tree_t comp, vlog_node_t mod,
                                        const elab_ctx_t *ctx)
 {
@@ -2345,7 +2371,8 @@ static vlog_node_t elab_mixed_generics(tree_t comp, vlog_node_t mod,
                   "corresponding Verilog parameter", tree_ident(cg), real);
          return NULL;
       }
-      else if (want_vector && !elab_is_logic_vector(ctype)
+      else if (want_vector && !type_eq(cbase, integer)
+               && !elab_is_logic_vector(ctype)
                && !(vec_width == 1 && elab_is_logic(ctype))) {
          error_at(tree_loc(cg), "generic %pI should be a locally static "
                   "logic or bit vector of width %d to match the "
@@ -2398,6 +2425,19 @@ static vlog_node_t elab_mixed_generics(tree_t comp, vlog_node_t mod,
 
          num = vlog_new(V_REAL);
          vlog_set_dval(num, dval);
+      }
+      else if (want_vector && type_eq(cbase, integer)) {
+         int64_t ival;
+         if (!folded_int(value, &ival)) {
+            error_at(tree_loc(value), "generic %pI value is not a locally "
+                     "static integer", tree_ident(cg));
+            return NULL;
+         }
+
+         const bool issigned = !!(vlog_flags(ptype) & VLOG_F_SIGNED);
+         num = vlog_new(V_NUMBER);
+         vlog_set_number(num, elab_number_from_integer(ival, vec_width,
+                                                       issigned));
       }
       else if (want_vector) {
          const bool scalar = !type_is_array(ctype);
