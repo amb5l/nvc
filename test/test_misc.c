@@ -328,6 +328,24 @@ START_TEST(test_heap_basic)
 }
 END_TEST
 
+START_TEST(test_heap_stable)
+{
+   heap_t *h = heap_new_stable(8);
+
+   heap_insert(h, 5, (void*)1);
+   heap_insert(h, 5, (void*)2);
+   heap_insert(h, 1, (void*)0);
+   heap_insert(h, 5, (void*)3);
+
+   fail_unless(heap_extract_min(h) == (void*)0);
+   fail_unless(heap_extract_min(h) == (void*)1);
+   fail_unless(heap_extract_min(h) == (void*)2);
+   fail_unless(heap_extract_min(h) == (void*)3);
+
+   heap_free(h);
+}
+END_TEST
+
 START_TEST(test_heap_walk)
 {
    heap_t *h = heap_new(128);
@@ -993,6 +1011,7 @@ Suite *get_misc_tests(void)
 
    TCase *tc_heap = tcase_create("heap");
    tcase_add_test(tc_heap, test_heap_basic);
+   tcase_add_test(tc_heap, test_heap_stable);
    tcase_add_test(tc_heap, test_heap_rand);
    tcase_add_test(tc_heap, test_heap_walk);
    tcase_add_test(tc_heap, test_heap_delete);

@@ -30,11 +30,23 @@
 struct heap_node {
    void     *user;
    uint64_t key;
+   uint64_t seq;
 };
 
 #define NODE(h, i) (h->nodes[i - 1])
 #define KEY(h, i)  (NODE(h, i).key)
+#define SEQ(h, i)  (NODE(h, i).seq)
 #define USER(h, i) (NODE(h, i).user)
+
+static bool heap_less(heap_t *h, size_t i, size_t j)
+{
+   if (KEY(h, i) != KEY(h, j))
+      return KEY(h, i) < KEY(h, j);
+   else if (h->stable)
+      return SEQ(h, i) < SEQ(h, j);
+   else
+      return false;
+}
 
 static inline void exchange(heap_t *h, size_t i, size_t j)
 {
@@ -50,12 +62,12 @@ static void min_heapify(heap_t *h, size_t i)
       const size_t r = RIGHT(i);
 
       size_t smallest;
-      if (l <= h->size && KEY(h, l) < KEY(h, i))
+      if (l <= h->size && heap_less(h, l, i))
          smallest = l;
       else
          smallest = i;
 
-      if (r <= h->size && KEY(h, r) < KEY(h, smallest))
+      if (r <= h->size && heap_less(h, r, smallest))
          smallest = r;
 
       if (smallest == i)
@@ -71,7 +83,7 @@ static inline void heap_decrease_key(heap_t *h, size_t i, uint64_t key)
    assert(key <= KEY(h, i));
 
    KEY(h, i) = key;
-   while (i > 1 && KEY(h, PARENT(i)) > KEY(h, i)) {
+   while (i > 1 && heap_less(h, i, PARENT(i))) {
       exchange(h, i, PARENT(i));
       i = PARENT(i);
    }
@@ -83,6 +95,13 @@ heap_t *heap_new(size_t init_size)
    h->nodes    = xmalloc_array(init_size, sizeof(heap_node_t));
    h->max_size = init_size;
    h->size     = 0;
+   return h;
+}
+
+heap_t *heap_new_stable(size_t init_size)
+{
+   heap_t *h = heap_new(init_size);
+   h->stable = true;
    return h;
 }
 
@@ -131,6 +150,7 @@ void heap_insert(heap_t *h, uint64_t key, void *user)
    ++(h->size);
 
    KEY(h, h->size) = UINT64_MAX;
+   SEQ(h, h->size) = h->next_seq++;
    USER(h, h->size) = user;
 
    heap_decrease_key(h, h->size, key);

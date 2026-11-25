@@ -30,6 +30,8 @@ typedef struct {
    heap_node_t *nodes;
    size_t       size;
    size_t       max_size;
+   uint64_t     next_seq;
+   bool         stable;
    nvc_lock_t   lock;
 } heap_t;
 
@@ -37,6 +39,7 @@ typedef void (*heap_walk_fn_t)(uint64_t key, void *user, void *context);
 typedef bool (*heap_delete_fn_t)(uint64_t key, void *user, void *context);
 
 heap_t *heap_new(size_t init_size);
+heap_t *heap_new_stable(size_t init_size);
 void heap_free(heap_t *h);
 void *heap_extract_min(heap_t *h);
 void *heap_min(heap_t *h);

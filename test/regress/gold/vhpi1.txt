@@ -60,8 +60,8 @@ start of sim callback! user data is 'some user data'
 after_5ns callback!
 5ns+1: x=70
 5000001fs+0: mutual callback!
-5000001fs+0: mutual callback!
 5000001fs+0: deferred work callback!
+5000001fs+0: mutual callback!
 5000002fs+0: enabled callback!
 y value changed to 71
 6ns+0: mutual callback!
