@@ -1544,3 +1544,4 @@ vlog78          verilog
 vlog79          mixed
 vlog80          verilog
 vlog81          verilog
+vlog82          verilog

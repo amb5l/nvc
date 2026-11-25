@@ -2050,16 +2050,18 @@ static mir_value_t vlog_lower_time(vlog_gen_t *g, vlog_node_t v, int64_t scale)
       scale = 1;
 
    // A number or time literal was multiplied by the time unit when it
-   // was parsed. Any other delay expression is still in time units
+   // was parsed, including the typical value of a min:typ:max delay.
+   // Any other delay expression is still in time units
    // (IEEE 1800-2017 22.7), including a real literal and a product
    // such as a 200 ps tap delay times a tap count.
+   if (vlog_kind(v) == V_MIN_TYP_MAX && vlog_kind(vlog_value(v)) == V_NUMBER)
+      v = vlog_value(v);
+
    if (vlog_kind(v) == V_NUMBER) {
       number_t num = vlog_number(v);
       return mir_const(g->mu, t_time, number_integer(num));
    }
 
-   // Anything that is not a parsed literal is still in time units: a
-   // real literal, or an expression such as TAP_DELAY * taps.
    mir_value_t value = vlog_lower_rvalue(g, v);
    if (scale != 1) {
       if (mir_is(g->mu, value, MIR_TYPE_REAL)) {
@@ -3405,6 +3407,80 @@ static void vlog_lower_sensitivity(vlog_gen_t *g, vlog_node_t v)
    }
 }
 
+static mir_value_t vlog_time_min(vlog_gen_t *g, mir_value_t a, mir_value_t b)
+{
+   mir_type_t t_time = mir_time_type(g->mu);
+   mir_value_t lt = mir_build_cmp(g->mu, MIR_CMP_LT, a, b);
+   return mir_build_select(g->mu, t_time, lt, a, b);
+}
+
+static mir_value_t vlog_delay_for_logic(vlog_gen_t *g, mir_value_t bit,
+                                        mir_value_t rise, mir_value_t fall,
+                                        mir_value_t toff)
+{
+   // IEEE 1800-2017 28.16: a transition to 1 uses the rise delay, to 0
+   // the fall delay, to Z the turn-off delay, and to X the minimum.
+   // Unpacked logic keeps the strength in the high bits.
+   mir_type_t t_time = mir_time_type(g->mu);
+   mir_type_t t_logic = mir_logic_type(g->mu);
+   mir_value_t state = mir_build_rem(g->mu, t_logic, bit,
+                                     mir_const(g->mu, t_logic, 4));
+   mir_value_t xmin = vlog_time_min(g, vlog_time_min(g, rise, fall), toff);
+
+   mir_value_t to1 = mir_build_cmp(g->mu, MIR_CMP_EQ, state,
+                                   mir_const(g->mu, t_logic, LOGIC_1));
+   mir_value_t to0 = mir_build_cmp(g->mu, MIR_CMP_EQ, state,
+                                   mir_const(g->mu, t_logic, LOGIC_0));
+   mir_value_t toz = mir_build_cmp(g->mu, MIR_CMP_EQ, state,
+                                   mir_const(g->mu, t_logic, LOGIC_Z));
+
+   mir_value_t not_one = mir_build_select(
+      g->mu, t_time, to0, fall,
+      mir_build_select(g->mu, t_time, toz, toff, xmin));
+   return mir_build_select(g->mu, t_time, to1, rise, not_one);
+}
+
+static void vlog_sched_logic_delay(vlog_gen_t *g, mir_value_t nets,
+                                   mir_value_t count, mir_value_t src,
+                                   mir_value_t rise, mir_value_t fall,
+                                   mir_value_t toff)
+{
+   mir_type_t t_offset = mir_offset_type(g->mu);
+
+   if (!mir_is(g->mu, src, MIR_TYPE_POINTER)) {
+      mir_value_t dly = vlog_delay_for_logic(g, src, rise, fall, toff);
+      mir_build_sched_waveform(g->mu, nets, count, src, dly, dly);
+      return;
+   }
+
+   mir_block_t head_bb = mir_add_block(g->mu);
+   mir_block_t body_bb = mir_add_block(g->mu);
+   mir_block_t done_bb = mir_add_block(g->mu);
+   mir_value_t idx = mir_add_var(g->mu, t_offset, MIR_NULL_STAMP,
+                                 ident_uniq("netdly"), MIR_VAR_TEMP);
+   mir_build_store(g->mu, idx, mir_const(g->mu, t_offset, 0));
+   mir_build_jump(g->mu, head_bb);
+
+   mir_set_cursor(g->mu, head_bb, MIR_APPEND);
+   mir_value_t i = mir_build_load(g->mu, idx);
+   mir_value_t more = mir_build_cmp(g->mu, MIR_CMP_LT, i, count);
+   mir_build_cond(g->mu, more, body_bb, done_bb);
+
+   mir_set_cursor(g->mu, body_bb, MIR_APPEND);
+   mir_value_t ptr = mir_build_array_ref(g->mu, src, i);
+   mir_value_t bit = mir_build_load(g->mu, ptr);
+   mir_value_t net = mir_build_array_ref(g->mu, nets, i);
+   mir_value_t dly = vlog_delay_for_logic(g, bit, rise, fall, toff);
+   mir_build_sched_waveform(g->mu, net, mir_const(g->mu, t_offset, 1),
+                            bit, dly, dly);
+   mir_build_store(g->mu, idx,
+                   mir_build_add(g->mu, t_offset, i,
+                                 mir_const(g->mu, t_offset, 1)));
+   mir_build_jump(g->mu, head_bb);
+
+   mir_set_cursor(g->mu, done_bb, MIR_APPEND);
+}
+
 static void vlog_lower_assign_process(vlog_gen_t *g, vlog_node_t v)
 {
    mir_block_t start_bb = mir_add_block(g->mu);
@@ -3466,12 +3542,24 @@ static void vlog_lower_assign_process(vlog_gen_t *g, vlog_node_t v)
 
    mir_value_t unpacked = mir_build_unpack(g->mu, resize, strength, tmp);
 
-   mir_value_t after = MIR_NULL_VALUE;
+   mir_value_t rise = MIR_NULL_VALUE;
+   mir_value_t fall = MIR_NULL_VALUE;
+   mir_value_t toff = MIR_NULL_VALUE;
    if (vlog_has_delay(v)) {
       vlog_node_t delay = vlog_delay(v);
       assert(vlog_kind(delay) == V_DELAY_CONTROL);
 
-      after = vlog_lower_delay(g, delay);
+      rise = vlog_lower_delay(g, delay);
+      const int ndly = vlog_params(delay);
+      if (ndly == 0)
+         fall = toff = rise;
+      else {
+         fall = vlog_lower_time(g, vlog_param(delay, 0), vlog_ival(delay));
+         if (ndly > 1)
+            toff = vlog_lower_time(g, vlog_param(delay, 1), vlog_ival(delay));
+         else
+            toff = vlog_time_min(g, rise, fall);
+      }
    }
 
    for (int i = 0, offset = 0; i < nlvalues; offset += lvalues[i].size, i++) {
@@ -3486,11 +3574,14 @@ static void vlog_lower_assign_process(vlog_gen_t *g, vlog_node_t v)
          src = mir_build_array_ref(g->mu, unpacked, pos);
       }
 
-      if (mir_is_null(after))
+      if (mir_is_null(rise))
          mir_build_put_driver(g->mu, nets, lvalues[i].count, src);
+      else if (mir_equals(rise, fall) && mir_equals(rise, toff))
+         mir_build_sched_waveform(g->mu, nets, lvalues[i].count, src, rise,
+                                  rise);
       else
-         mir_build_sched_waveform(g->mu, nets, lvalues[i].count, src, after,
-                                  after);
+         vlog_sched_logic_delay(g, nets, lvalues[i].count, src, rise, fall,
+                                toff);
    }
 
    mir_build_wait(g->mu, start_bb);

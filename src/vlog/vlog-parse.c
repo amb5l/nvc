@@ -2474,6 +2474,19 @@ static void scale_delay_number(vlog_node_t v)
    vlog_set_number(v, number_from_int(value));
 }
 
+static vlog_node_t p_one_delay(void)
+{
+   // One rise, fall, or turn-off expression. A time literal is already
+   // in femtoseconds. An unsized number or real is in the time unit.
+   const bool timelit = (peek() == tTIMELIT);
+   const bool scale = (peek() == tUNSNUM || peek() == tREAL);
+
+   vlog_node_t expr = timelit ? p_delay_value() : p_mintypmax_expression();
+   if (scale)
+      scale_delay_number(expr);
+   return expr;
+}
+
 static vlog_node_t p_delay3(void)
 {
    // # delay_value | # ( mintypmax_expression [ , mintypmax_expression
@@ -2491,19 +2504,14 @@ static vlog_node_t p_delay3(void)
    else {
       consume(tLPAREN);
 
-      // Rise delay. Fall and turn-off delays are accepted so that library
-      // models analyse; only the rise delay is applied to the assignment.
-      // A leading unsized number is scaled by the current time unit, matching
-      // a bare delay value.
-      const bool scale = (peek() == tUNSNUM || peek() == tREAL);
-      vlog_node_t expr = p_mintypmax_expression();
-      if (scale)
-         scale_delay_number(expr);
-      vlog_set_value(v, expr);
+      // Rise, then optional fall and turn-off. IEEE 1800-2017 28.16.
+      // A single delay applies to every transition. Two delays are the
+      // rise and the fall; the turn-off delay is their minimum.
+      vlog_set_value(v, p_one_delay());
 
       int expr_cnt = 1;
       while (expr_cnt < 3 && optional(tCOMMA)) {
-         (void)p_mintypmax_expression();
+         vlog_add_param(v, p_one_delay());
          expr_cnt++;
       }
 
