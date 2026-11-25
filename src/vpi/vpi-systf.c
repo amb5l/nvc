@@ -1041,15 +1041,26 @@ static PLI_INT32 readmem_tf(PLI_BYTE8 *userdata)
    return 0;
 }
 
+static int64_t scaled_now(int64_t now)
+{
+   // Femtoseconds per time unit of the module that invoked the call.
+   // IEEE 1800-2017 20.3.1: $time and $stime are that unit, rounded.
+   int64_t scale = vpi_active_systf_ival();
+   if (scale <= 0)
+      scale = 1;
+
+   return (now + scale / 2) / scale;
+}
+
 static PLI_INT32 time_tf(PLI_BYTE8 *userdata)
 {
    rt_model_t *m = get_model();
-   const int64_t now = model_now(m, NULL);
+   const int64_t scaled = scaled_now(model_now(m, NULL));
 
    s_vpi_time timeval = {
       .type = vpiSimTime,
-      .high = now >> 32,
-      .low  = now & 0xffffffff
+      .high = (uint32_t)(scaled >> 32),
+      .low  = (uint32_t)scaled
    };
 
    s_vpi_value result = {
@@ -1093,11 +1104,11 @@ static PLI_INT32 realtime_tf(PLI_BYTE8 *userdata)
 static PLI_INT32 stime_tf(PLI_BYTE8 *userdata)
 {
    rt_model_t *m = get_model();
-   const int64_t now = model_now(m, NULL);
+   const int64_t scaled = scaled_now(model_now(m, NULL));
 
    s_vpi_value result = {
       .format = vpiIntVal,
-      .value = { .integer = now & 0xffffffff },
+      .value = { .integer = (uint32_t)scaled },
    };
 
    vpiHandle call = vpi_handle(vpiSysTfCall, NULL);

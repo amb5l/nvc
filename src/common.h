@@ -289,6 +289,8 @@ typedef enum {
    W_DLR_CEIL,
    W_DLR_FLOOR,
    W_DLR_REALTIME,
+   W_DLR_TIME,
+   W_DLR_STIME,
    W_COUNTERS,
 
    NUM_WELL_KNOWN

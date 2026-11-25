@@ -1415,6 +1415,8 @@ static vlog_node_t p_system_tf_call(vlog_kind_t kind)
    case W_DLR_CEIL:     subk = V_SYSTF_CEIL; break;
    case W_DLR_FLOOR:    subk = V_SYSTF_FLOOR; break;
    case W_DLR_REALTIME: subk = V_SYSTF_REALTIME; break;
+   case W_DLR_TIME:     subk = V_SYSTF_TIME; break;
+   case W_DLR_STIME:    subk = V_SYSTF_STIME; break;
    default:             subk = V_SYSTF_NONE; break;
    }
 
@@ -1423,8 +1425,10 @@ static vlog_node_t p_system_tf_call(vlog_kind_t kind)
    vlog_set_subkind(v, subk);
 
    // Time unit of the module that contains this call, in femtoseconds.
-   // $realtime divides the simulation time by this scale.
-   if (subk == V_SYSTF_REALTIME)
+   // $time, $stime, and $realtime scale simulation time by this.
+   // IEEE 1800-2017 20.3.1 and 22.7.
+   if (subk == V_SYSTF_REALTIME || subk == V_SYSTF_TIME
+       || subk == V_SYSTF_STIME)
       vlog_set_ival(v, time_scale == 0 ? 1 : (int64_t)time_scale);
 
    if (optional(tLPAREN)) {
