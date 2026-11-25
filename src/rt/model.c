@@ -4423,6 +4423,45 @@ void x_sched_active(sig_shared_t *ss, uint32_t offset, int32_t count)
    }
 }
 
+// True when this net changed while the model was still initialising.
+// That update is a time-0 event, but it is stamped with the init
+// iteration, so a process that starts waiting at time 0 would miss it.
+// IEEE 1800-2017 4.5 and 9.2.1.
+static bool nexus_init_event(const rt_model_t *m, const rt_nexus_t *n)
+{
+   return m->now == 0 && m->iteration == 0
+      && n->last_event == 0
+      && n->event_delta == (delta_cycle_t)-1;
+}
+
+static bool trigger_init_event(rt_model_t *m, rt_trigger_t *t)
+{
+   switch (t->kind) {
+   case OR_TRIGGER:
+      return trigger_init_event(m, t->args[0].pointer)
+         || trigger_init_event(m, t->args[1].pointer);
+   case LEVEL_TRIGGER:
+      {
+         rt_signal_t *s = t->args[0].pointer;
+         uint32_t offset = t->args[1].integer;
+         int32_t count = t->args[2].integer;
+
+         rt_nexus_t *n = split_nexus(m, s, offset, count);
+         for (; count > 0; n = n->chain) {
+            if (nexus_init_event(m, n))
+               return true;
+
+            count -= n->width;
+            assert(count >= 0);
+         }
+         return false;
+      }
+   default:
+      // Edge tests are not implied by an initial value.
+      return false;
+   }
+}
+
 void x_enable_trigger(rt_trigger_t *trigger)
 {
    TRACE("enable trigger %p", trigger);
@@ -4431,6 +4470,12 @@ void x_enable_trigger(rt_trigger_t *trigger)
    rt_model_t *m = get_model();
 
    sched_event(m, &(trigger->pending), obj);
+
+   // The process is arming its first wait. If the net already changed
+   // during initialisation, resume after this wait so the body runs at
+   // time 0. A later re-arm is a new iteration and does not match.
+   if (trigger_init_event(m, trigger))
+      wakeup_one(m, obj);
 }
 
 void x_disable_trigger(rt_trigger_t *trigger)
