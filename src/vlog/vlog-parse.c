@@ -597,7 +597,15 @@ static vlog_node_t p_constant_range_expression(void)
 
    BEGIN("constant range expression");
 
-   return p_constant_expression();
+   vlog_node_t e = p_constant_expression();
+
+   // constant_part_select_range ::= constant_range | constant_indexed_range
+   if (scan(tCOLON, tINDEXPOS, tINDEXNEG)) {
+      consume(peek());
+      (void)p_constant_expression();
+   }
+
+   return e;
 }
 
 static vlog_node_t p_constant_mintypmax_expression(void)
@@ -6395,7 +6403,7 @@ static vlog_node_t p_setup_or_hold_timing_check(void)
    consume(tCOMMA);
    vlog_add_param(v, p_timing_check_event());
    consume(tCOMMA);
-   vlog_add_param(v, p_expression());
+   vlog_add_param(v, p_mintypmax_expression());
 
    if (optional(tCOMMA)) {
       if (peek() == tID)
@@ -6442,7 +6450,7 @@ static vlog_node_t p_recovery_or_removal_timing_check(void)
 
    consume(tCOMMA);
 
-   vlog_add_param(v, p_expression());
+   vlog_add_param(v, p_mintypmax_expression());
 
    if (optional(tCOMMA)) {
       if (peek() == tID)
@@ -6471,7 +6479,7 @@ static vlog_node_t p_width_timing_check(void)
 
    consume(tCOMMA);
 
-   (void)p_expression();
+   (void)p_mintypmax_expression();
 
    consume(tCOMMA);
 
@@ -6514,7 +6522,7 @@ static vlog_node_t p_period_timing_check(void)
 
    consume(tCOMMA);
 
-   (void)p_expression();
+   (void)p_mintypmax_expression();
 
    if (optional(tCOMMA)) {
       if (peek() == tID)
@@ -6547,11 +6555,11 @@ static vlog_node_t p_setuphold_or_recrem_timing_check(void)
 
    consume(tCOMMA);
 
-   (void)p_expression();
+   (void)p_mintypmax_expression();
 
    consume(tCOMMA);
 
-   (void)p_expression();
+   (void)p_mintypmax_expression();
 
    if (optional(tCOMMA)) {
       if (peek() == tID)
