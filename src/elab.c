@@ -1864,7 +1864,63 @@ static object_t *elab_get_verilog(lib_t lib, ident_t modname, ident_t *qual)
    return lib_get_generic(lib, *qual, NULL);
 }
 
-static void elab_verilog_instance_list(vlog_node_t v, const elab_ctx_t *ctx)
+static vlog_node_t elab_with_defparams(vlog_node_t parent, vlog_node_t list,
+                                      vlog_node_t inst)
+{
+   if (parent == NULL || inst == NULL)
+      return list;
+
+   ident_t iname = vlog_ident(inst);
+   vlog_node_t extra = NULL;
+
+   const int nstmts = vlog_stmts(parent);
+   for (int i = 0; i < nstmts; i++) {
+      vlog_node_t s = vlog_stmt(parent, i);
+      if (vlog_kind(s) != V_DEFPARAM)
+         continue;
+
+      vlog_node_t tgt = vlog_target(s);
+      if (vlog_kind(tgt) != V_HIER_REF)
+         continue;
+
+      vlog_node_t prefix = vlog_value(tgt);
+      if (vlog_kind(prefix) != V_MOD_REF || vlog_has_value(prefix)) {
+         error_at(vlog_loc(s), "only a defparam of the form "
+                  "instance.parameter is supported");
+         continue;
+      }
+      else if (vlog_ident(prefix) != iname)
+         continue;
+
+      if (extra == NULL) {
+         extra = vlog_new(V_INST_LIST);
+         vlog_set_ident(extra, vlog_ident(list));
+         vlog_set_loc(extra, vlog_loc(list));
+
+         const int nparams = vlog_params(list);
+         for (int j = 0; j < nparams; j++)
+            vlog_add_param(extra, vlog_param(list, j));
+      }
+
+      vlog_node_t pa = vlog_new(V_PARAM_ASSIGN);
+      vlog_set_ident(pa, vlog_ident(tgt));
+      vlog_set_value(pa, vlog_value(s));
+      vlog_set_loc(pa, vlog_loc(s));
+      vlog_add_param(extra, pa);
+
+      // The name has been applied. Leave a plain reference so the
+      // hierarchical-name pass does not look for a net of this name.
+      vlog_node_t done = vlog_new(V_REF);
+      vlog_set_ident(done, vlog_ident(tgt));
+      vlog_set_loc(done, vlog_loc(tgt));
+      vlog_set_target(s, done);
+   }
+
+   return extra != NULL ? extra : list;
+}
+
+static void elab_verilog_instance_list(vlog_node_t v, vlog_node_t parent,
+                                      const elab_ctx_t *ctx)
 {
    ident_t modname = vlog_ident(v);
 
@@ -1909,7 +1965,8 @@ static void elab_verilog_instance_list(vlog_node_t v, const elab_ctx_t *ctx)
       vlog_node_t inst = vlog_stmt(v, i);
       assert(vlog_kind(inst) == V_MOD_INST);
 
-      elab_verilog_module(NULL, vlog_ident(inst), mod, v, inst, ctx);
+      vlog_node_t params = elab_with_defparams(parent, v, inst);
+      elab_verilog_module(NULL, vlog_ident(inst), mod, params, inst, ctx);
    }
 }
 
@@ -2097,6 +2154,7 @@ static void elab_verilog_processes(vlog_node_t v, const elab_ctx_t *ctx)
       case V_GEN_BLOCK:
       case V_IF_GENERATE:
       case V_FOR_GENERATE:
+      case V_DEFPARAM:
          break;
       default:
          fatal_at(vlog_loc(s), "sorry, this Verilog statement is not "
@@ -2114,7 +2172,7 @@ static void elab_verilog_sub_blocks(vlog_node_t v, const elab_ctx_t *ctx)
       const vlog_kind_t kind = vlog_kind(s);
       switch (kind) {
       case V_INST_LIST:
-         elab_verilog_instance_list(s, ctx);
+         elab_verilog_instance_list(s, v, ctx);
          break;
       case V_GEN_BLOCK:
          elab_verilog_block(s, ctx);

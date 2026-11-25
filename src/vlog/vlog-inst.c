@@ -33,24 +33,26 @@ static vlog_node_t bind_parameter(vlog_node_t decl, int nth, vlog_node_t inst)
       value = vlog_value(decl);
 
    if (inst != NULL) {
-      vlog_node_t p;
+      ident_t id = vlog_ident(decl);
       const int nparams = vlog_params(inst);
-      if (nth < nparams && !vlog_has_ident((p = vlog_param(inst, nth))))
-         value = vlog_value(p);
-      else {
-         ident_t id = vlog_ident(decl);
-         for (int i = 0; i < nparams; i++) {
-            p = vlog_param(inst, i);
-            if (!vlog_has_ident(p))
-               continue;
-            else if (vlog_ident(p) != id)
-               continue;
 
-            if (vlog_has_value(p))
-               value = vlog_value(p);
+      // A later named assignment overrides an earlier one, so a
+      // defparam appended after the instance's #() list wins.
+      vlog_node_t named = NULL;
+      for (int i = 0; i < nparams; i++) {
+         vlog_node_t p = vlog_param(inst, i);
+         if (vlog_has_ident(p) && vlog_ident(p) == id)
+            named = p;
+      }
 
-            break;
-         }
+      if (named != NULL) {
+         if (vlog_has_value(named))
+            value = vlog_value(named);
+      }
+      else if (nth < nparams) {
+         vlog_node_t p = vlog_param(inst, nth);
+         if (!vlog_has_ident(p) && vlog_has_value(p))
+            value = vlog_value(p);
       }
    }
 
@@ -185,11 +187,17 @@ vlog_node_t vlog_new_instance(vlog_node_t mod, vlog_node_t inst, ident_t id)
    }
 
    if (inst != NULL) {
+      int positional = 0;
       const int nparams = vlog_params(inst);
-      if (pidx < nparams)
+      for (int i = 0; i < nparams; i++) {
+         if (!vlog_has_ident(vlog_param(inst, i)))
+            positional++;
+      }
+
+      if (positional > pidx)
          error_at(vlog_loc(inst), "module %s has %d parameter%s but %d "
                   "values given", istr(vlog_ident2(mod)), pidx,
-                  pidx != 1 ? "s" : "", nparams);
+                  pidx != 1 ? "s" : "", positional);
    }
 
    const int nstmts = vlog_stmts(copy);
