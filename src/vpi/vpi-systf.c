@@ -17,11 +17,14 @@
 
 #include "util.h"
 #include "diag.h"
+#include "ident.h"
 #include "jit/jit.h"
 #include "rt/fileio.h"
 #include "option.h"
 #include "printf.h"
 #include "rt/model.h"
+#include "rt/structs.h"
+#include "tree.h"
 #include "svrand.h"
 #include "thread.h"
 #include "vlog/vlog-node.h"
@@ -257,6 +260,54 @@ static void format_char(ostream_t *out, vpiHandle it, int fwidth)
    vpi_release_handle(arg);
 }
 
+static bool hier_scope_name(rt_scope_t *s, ident_t *id)
+{
+   if (s->where == NULL || tree_kind(s->where) != T_BLOCK)
+      return false;
+   else if (tree_decls(s->where) < 1)
+      return false;
+
+   tree_t hier = tree_decl(s->where, 0);
+   if (tree_kind(hier) != T_HIER)
+      return false;
+
+   switch (tree_subkind(hier)) {
+   case T_ARCH:
+   case T_VERILOG:
+   case T_COMPONENT:
+   case T_BLOCK:
+   case T_FOR_GENERATE:
+   case T_IF_GENERATE:
+   case T_CASE_GENERATE:
+      *id = tree_ident(s->where);
+      return true;
+   default:
+      return false;
+   }
+}
+
+static void format_scope(ostream_t *out)
+{
+   rt_model_t *m = get_model_or_null();
+   if (m == NULL)
+      return;
+
+   rt_scope_t *s = get_active_scope(m);
+   rt_scope_t *stack[64];
+   int n = 0;
+   for (; s != NULL && s->kind != SCOPE_ROOT && n < 64; s = s->parent) {
+      ident_t id;
+      if (hier_scope_name(s, &id))
+         stack[n++] = s;
+   }
+
+   for (int i = n - 1; i >= 0; i--) {
+      if (i != n - 1)
+         ostream_putc(out, '.');
+      ostream_puts(out, istr(tree_ident(stack[i]->where)));
+   }
+}
+
 static void interpret_format(ostream_t *out, const char *fmt, vpiHandle it)
 {
    const char *start = fmt, *p = fmt;
@@ -300,6 +351,9 @@ static void interpret_format(ostream_t *out, const char *fmt, vpiHandle it)
             break;
          case 'v':
             format_strength(out, it);
+            break;
+         case 'm':
+            format_scope(out);
             break;
          case '%':
             ostream_putc(out, '%');
