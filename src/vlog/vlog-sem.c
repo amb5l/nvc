@@ -1298,6 +1298,9 @@ static void vlog_check_specify(vlog_node_t v)
       case V_TCHECK:
          vlog_check_tcheck(stmt);
          break;
+      case V_ASSIGN:
+         vlog_check_assign(stmt);
+         break;
       default:
          break;
       }
