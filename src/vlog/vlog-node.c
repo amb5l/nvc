@@ -82,7 +82,7 @@ static const imask_t has_map[V_LAST_NODE_KIND] = {
    (I_IDENT | I_TYPE | I_RANGES | I_VALUE),
 
    // V_DELAY_CONTROL
-   (I_VALUE | I_IVAL),
+   (I_VALUE | I_PARAMS | I_IVAL),
 
    // V_BINARY
    (I_LEFT | I_RIGHT | I_SUBKIND),
