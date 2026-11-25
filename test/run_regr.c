@@ -142,6 +142,8 @@ typedef struct _test {
    char      *export;
    char      *exit;
    char      *plugin;
+   char      *vloglib;
+   char      *eltop;
    unsigned   arrays;
    int        seed;
    double     duration;
@@ -542,6 +544,24 @@ static bool parse_test_list(void)
             test->flags |= F_WORKLIB;
             test->work = strdup(value + 1);
          }
+         else if (strncmp(opt, "veriloglib=", 11) == 0) {
+            if (opt[11] == '\0') {
+               fprintf(stderr, "Error on testlist line %d: missing argument "
+                       "to veriloglib option in test %s\n", lineno, name);
+               goto out_close;
+            }
+
+            test->vloglib = strdup(opt + 11);
+         }
+         else if (strncmp(opt, "eltop=", 6) == 0) {
+            if (opt[6] == '\0') {
+               fprintf(stderr, "Error on testlist line %d: missing argument "
+                       "to eltop option in test %s\n", lineno, name);
+               goto out_close;
+            }
+
+            test->eltop = strdup(opt + 6);
+         }
          else if (strncmp(opt, "define", 6) == 0) {
             char *value = strchr(opt, '=');
             if (value == NULL) {
@@ -582,6 +602,12 @@ static bool parse_test_list(void)
          }
 
          opt = strtok(NULL, ",");
+      }
+
+      if (test->vloglib != NULL && !(test->flags & F_MIXED)) {
+         fprintf(stderr, "Error on testlist line %d: veriloglib requires "
+                 "mixed in test %s\n", lineno, name);
+         goto out_close;
       }
 
       last = test;
@@ -922,6 +948,23 @@ static bool run_test(test_t *test)
    arglist_t *args = NULL;
    const double start_ns = get_timestamp_ns();
 
+   if (test->vloglib != NULL) {
+      push_arg(&args, "%s" DIR_SEP "nvc%s", bin_dir, EXEEXT);
+      push_std(test, &args);
+      push_arg(&args, "--work=%s", test->vloglib);
+      if (test->flags & F_DEFINE)
+         push_arg(&args, "--define=%s", test->define);
+      push_arg(&args, "-a");
+      push_arg(&args, "%s" DIR_SEP "regress" DIR_SEP "%s.v",
+               test_dir, test->name);
+
+      if (run_cmd(outf, &args) != RUN_OK) {
+         failed("analyse Verilog library");
+         result = false;
+         goto out_print;
+      }
+   }
+
    if (test->flags & F_SHELL) {
       push_arg(&args, SH_PATH);
       push_arg(&args, "%s" DIR_SEP "regress" DIR_SEP "%s.sh",
@@ -965,6 +1008,9 @@ static bool run_test(test_t *test)
       if (test->heapsz != NULL)
          push_arg(&args, "-H%s", test->heapsz);
 
+      if (test->vloglib != NULL)
+         push_arg(&args, "-L.");
+
       if (test->flags & F_VHPI)
          push_arg(&args, "--load=%s/../lib/vhpi_test.so%s", bin_dir, EXEEXT);
 
@@ -985,7 +1031,12 @@ static bool run_test(test_t *test)
          push_arg(&args, "%s" DIR_SEP "regress" DIR_SEP "%s.vhd",
                   test_dir, test->name);
 
-      if (test->flags & (F_MIXED | F_VERILOG)) {
+      if (test->vloglib != NULL) {
+         if (file_exists("%s/regress/%s.work.v", test_dir, test->name))
+            push_arg(&args, "%s" DIR_SEP "regress" DIR_SEP "%s.work.v",
+                     test_dir, test->name);
+      }
+      else if (test->flags & (F_MIXED | F_VERILOG)) {
          if (file_exists("%s/regress/%s.sv", test_dir, test->name))
             push_arg(&args, "%s" DIR_SEP "regress" DIR_SEP "%s.sv",
                      test_dir, test->name);
@@ -1011,6 +1062,8 @@ static bool run_test(test_t *test)
 
       push_arg(&args, "-e");
       push_arg(&args, "%s", test->name);
+      if (test->eltop != NULL)
+         push_arg(&args, "%s", test->eltop);
       push_arg(&args, "-O%u", test->olevel);
 
       if (test->flags & F_NOCOLL)
@@ -1047,6 +1100,9 @@ static bool run_test(test_t *test)
 
          if (test->heapsz != NULL)
             push_arg(&args, "-H%s", test->heapsz);
+
+         if (test->vloglib != NULL)
+            push_arg(&args, "-L.");
 
          if (test->flags & F_VHPI)
             push_arg(&args, "--load=%s/../lib/vhpi_test.so%s", bin_dir, EXEEXT);

@@ -111,6 +111,25 @@ static ident_t to_unit_name(const char *str)
    return ident_prefix(lib_name(lib_work()), ident_new(name), '.');
 }
 
+static bool split_lib_unit(const char *str, ident_t *lib_i, ident_t *unit_i)
+{
+   const char *dot = strchr(str, '.');
+   if (dot == NULL || dot == str || dot[1] == '\0'
+       || strchr(dot + 1, '.') != NULL || strchr(str, '(') != NULL)
+      return false;
+
+   char *lcopy LOCAL = xstrndup(str, dot - str);
+   for (char *p = lcopy; *p; p++) {
+      if (!isalnum_iso88591(*p) && *p != '_')
+         fatal("'%s' is not a valid design unit name", str);
+      *p = toupper_iso88591(*p);
+   }
+
+   *lib_i = ident_new(lcopy);
+   *unit_i = ident_rfrom(to_unit_name(dot + 1), '.');
+   return true;
+}
+
 static int scan_cmd(int start, int argc, char **argv)
 {
    const char *commands[] = {
@@ -666,12 +685,18 @@ static int elaborate(int argc, char **argv, cmd_state_t *state)
 
    object_t **tops LOCAL = xmalloc_array(ntops, sizeof(object_t *));
    for (int i = 0; i < ntops; i++) {
-      ident_t name = to_unit_name(argv[optind + i]);
+      lib_t lib = state->work;
+      ident_t name, lib_i, unit_i;
+      if (split_lib_unit(argv[optind + i], &lib_i, &unit_i)) {
+         lib = lib_require(lib_i);
+         name = ident_prefix(lib_i, unit_i, '.');
+      }
+      else
+         name = to_unit_name(argv[optind + i]);
 
-      tops[i] = lib_get_generic(state->work, name, NULL);
+      tops[i] = lib_get_generic(lib, name, NULL);
       if (tops[i] == NULL)
-         fatal("cannot find unit %pI in library %pI", name,
-               lib_name(state->work));
+         fatal("cannot find unit %pI in library %pI", name, lib_name(lib));
 
       if (i == 0) {
          state->top_level = name;
