@@ -195,6 +195,8 @@ static void vlog_check_net_lvalue(vlog_node_t v, vlog_node_t where)
          }
       }
       return;
+   case V_HIER_REF:
+      return;   // Cannot check now
    default:
       break;
    }

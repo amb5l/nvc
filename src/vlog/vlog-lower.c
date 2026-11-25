@@ -451,7 +451,9 @@ static vlog_select_t vlog_lower_select(vlog_gen_t *g, vlog_node_t v)
    case V_BIT_SELECT:
       {
          vlog_node_t value = vlog_value(v);
-         assert(vlog_kind(value) == V_REF);
+         assert(vlog_kind(value) == V_REF || vlog_kind(value) == V_HIER_REF);
+         if (vlog_kind(value) == V_HIER_REF && !vlog_has_ref(value))
+            fatal_at(vlog_loc(value), "unbound hierarchical reference");
 
          vlog_select_t prefix = vlog_lower_select(g, value);
 

@@ -625,34 +625,40 @@ vlog_node_t vlog_get_type(vlog_node_t v)
 
 vlog_node_t vlog_get_dim(vlog_node_t v, int n)
 {
+   vlog_node_t decl;
    switch (vlog_kind(v)) {
    case V_REF:
    case V_MEMBER_REF:
-      {
-         vlog_node_t decl = vlog_ref(v), dt = vlog_type(decl);
-
-         switch (vlog_kind(decl)) {
-         case V_NET_DECL:
-         case V_VAR_DECL:
-         case V_PORT_DECL:
-         case V_LOCAL_DECL:
-            {
-               const int nunpacked = vlog_ranges(decl);
-               assert(n <= vlog_ranges(dt) + nunpacked);
-
-               if (n < nunpacked)
-                  return vlog_range(decl, n);
-               else
-                  return vlog_range(dt, n - nunpacked);
-            }
-         default:
-            return vlog_range(dt, n);
-         }
-      }
+      decl = vlog_ref(v);
+      break;
+   case V_HIER_REF:
+      if (!vlog_has_ref(v))
+         fatal_at(vlog_loc(v), "unbound hierarchical reference");
+      decl = vlog_ref(v);
+      break;
    case V_BIT_SELECT:
       return vlog_get_dim(vlog_value(v), vlog_params(v) + n);
    default:
       CANNOT_HANDLE(v);
+   }
+
+   vlog_node_t dt = vlog_type(decl);
+   switch (vlog_kind(decl)) {
+   case V_NET_DECL:
+   case V_VAR_DECL:
+   case V_PORT_DECL:
+   case V_LOCAL_DECL:
+      {
+         const int nunpacked = vlog_ranges(decl);
+         assert(n <= vlog_ranges(dt) + nunpacked);
+
+         if (n < nunpacked)
+            return vlog_range(decl, n);
+         else
+            return vlog_range(dt, n - nunpacked);
+      }
+   default:
+      return vlog_range(dt, n);
    }
 }
 

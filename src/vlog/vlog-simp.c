@@ -153,6 +153,7 @@ static void build_sensitivity(vlog_node_t ctrl, vlog_node_t v, hset_t *set,
       break;
    case V_NUMBER:
    case V_STRING:
+   case V_REAL:
       break;
    case V_IF:
       {
