@@ -61,6 +61,7 @@ typedef struct _elab_ctx {
    ident_t           dotted;
    ident_t           cloned;
    lib_t             library;
+   lib_t             vloglib;
    jit_t            *jit;
    unit_registry_t  *registry;
    mir_context_t    *mir;
@@ -1514,6 +1515,7 @@ static void elab_inherit_context(elab_ctx_t *ctx, const elab_ctx_t *parent)
    ctx->nroots   = parent->nroots;
    ctx->dotted   = ctx->dotted ?: parent->dotted;
    ctx->library  = ctx->library ?: parent->library;
+   ctx->vloglib  = ctx->vloglib ?: parent->vloglib;
    ctx->out      = ctx->out ?: parent->out;
    ctx->cover    = parent->cover;
    ctx->sdf      = parent->sdf;
@@ -1679,6 +1681,14 @@ static void elab_verilog_module(tree_t comp, ident_t label, vlog_node_t mod,
    };
    elab_inherit_context(&new_ctx, ctx);
 
+   ident_t unit = vlog_ident(mod);
+   ident_t lname = ident_until(unit, '.');
+   if (lname != unit) {
+      lib_t own = lib_find(lname);
+      if (own != NULL)
+         new_ctx.vloglib = own;
+   }
+
    tree_t b = tree_new(T_BLOCK);
    tree_set_ident(b, label);
    tree_set_loc(b, tree_loc(ctx->out));
@@ -1741,23 +1751,38 @@ static void elab_verilog_module(tree_t comp, ident_t label, vlog_node_t mod,
    elab_pop_scope(&new_ctx);
 }
 
-static void elab_verilog_instance_list(vlog_node_t v, const elab_ctx_t *ctx)
+static object_t *elab_get_verilog(lib_t lib, ident_t modname, ident_t *qual)
 {
-   ident_t modname = vlog_ident(v);
-   ident_t libname = lib_name(ctx->library);
-
    LOCAL_TEXT_BUF tb = tb_new();
-   tb_istr(tb, libname);
+   tb_istr(tb, lib_name(lib));
    tb_append(tb, '.');
    tb_istr(tb, modname);
    tb_upcase(tb);
 
-   ident_t qual = ident_new(tb_get(tb));
+   *qual = ident_new(tb_get(tb));
+   return lib_get_generic(lib, *qual, NULL);
+}
 
-   object_t *obj = lib_get_generic(ctx->library, qual, NULL);
+static void elab_verilog_instance_list(vlog_node_t v, const elab_ctx_t *ctx)
+{
+   ident_t modname = vlog_ident(v);
+
+   lib_t search[2];
+   int nsearch = 0;
+   if (ctx->vloglib != NULL)
+      search[nsearch++] = ctx->vloglib;
+   if (ctx->library != NULL && ctx->library != ctx->vloglib)
+      search[nsearch++] = ctx->library;
+
+   object_t *obj = NULL;
+   ident_t qual = NULL;
+   for (int i = 0; obj == NULL && i < nsearch; i++)
+      obj = elab_get_verilog(search[i], modname, &qual);
+
    if (obj == NULL) {
+      lib_t missing = ctx->vloglib ?: ctx->library;
       error_at(vlog_loc(v), "module %pQ not found in library %pI",
-               modname, libname);
+               modname, lib_name(missing));
       return;
    }
 

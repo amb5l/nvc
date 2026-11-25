@@ -1519,3 +1519,4 @@ gate3           verilog
 hier1           shell
 vlog55          verilog
 vlog56          shell
+vlog57          mixed,veriloglib=unisim
