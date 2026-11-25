@@ -2050,15 +2050,18 @@ static mir_value_t vlog_lower_time(vlog_gen_t *g, vlog_node_t v, int64_t scale)
       scale = 1;
 
    // A number or time literal was multiplied by the time unit when it
-   // was parsed. A parameter, localparam, or variable is still in time
-   // units (IEEE 1800-2017 22.7) and is scaled here.
+   // was parsed. Any other delay expression is still in time units
+   // (IEEE 1800-2017 22.7), including a real literal and a product
+   // such as a 200 ps tap delay times a tap count.
    if (vlog_kind(v) == V_NUMBER) {
       number_t num = vlog_number(v);
       return mir_const(g->mu, t_time, number_integer(num));
    }
 
+   // Anything that is not a parsed literal is still in time units: a
+   // real literal, or an expression such as TAP_DELAY * taps.
    mir_value_t value = vlog_lower_rvalue(g, v);
-   if (vlog_kind(v) == V_REF && scale != 1) {
+   if (scale != 1) {
       if (mir_is(g->mu, value, MIR_TYPE_REAL)) {
          mir_type_t t_real = mir_get_type(g->mu, value);
          value = mir_build_mul(g->mu, t_real, value,
