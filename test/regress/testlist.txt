@@ -1537,3 +1537,4 @@ vlog71          verilog
 vlog72          verilog
 vlog73          verilog
 vlog74          verilog
+vlog75          mixed
